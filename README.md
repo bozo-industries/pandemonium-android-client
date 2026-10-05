@@ -6,6 +6,8 @@ The first launch opens Pandemonium's shared sign-in at `/ui`. Sign in there with
 
 The shell handles Android back navigation, keyboard/system-bar insets, file picking, page-load progress, and connection retry. Links outside the exact HTTPS origin open in the appropriate external app. TLS errors and cleartext requests are not bypassed.
 
+Camera access is requested on demand for live scanning on the exact `https://claras.page` origin. Android asks for camera permission the first time; microphone and unrelated WebView permissions are never granted. Navigating away cancels pending web camera requests. Image uploads offer **Take photo** or **Choose file**; capture-enabled fields launch the camera directly. Photos use temporary, individually granted content URIs in the app cache. Cancelled captures are deleted and older captures are cleaned up when starting a new photo.
+
 ## Sessions
 
 - Web access cookies last seven days. They remain HttpOnly and are flushed to WebView's private persistent cookie store on navigation and backgrounding.

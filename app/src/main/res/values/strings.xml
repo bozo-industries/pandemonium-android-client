@@ -1,5 +1,8 @@
 <resources>
     <string name="app_name">Pandemonium</string>
+    <string name="take_photo">Take photo</string>
+    <string name="choose_file">Choose file</string>
+    <string name="camera_unavailable">Camera unavailable. Try choosing a file instead.</string>
     <string name="connection_error">Unable to connect. Tap to retry</string>
     <string name="session_error">Session renewal unavailable. Tap to retry</string>
     <string name="no_link_handler">No app can open this link</string>
