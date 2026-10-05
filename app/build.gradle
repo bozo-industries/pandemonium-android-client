@@ -1,0 +1,38 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'page.claras.pandemonium'
+    compileSdk 35
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+    defaultConfig {
+        applicationId 'page.claras.pandemonium'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+    }
+    signingConfigs {
+        if (System.getenv('PANDEMONIUM_SIGNING_STORE') && System.getenv('PANDEMONIUM_SIGNING_PASSWORD')) {
+            release {
+                storeFile file(System.getenv('PANDEMONIUM_SIGNING_STORE'))
+                storePassword System.getenv('PANDEMONIUM_SIGNING_PASSWORD')
+                keyAlias 'pandemonium'
+                keyPassword System.getenv('PANDEMONIUM_SIGNING_PASSWORD')
+            }
+        }
+    }
+    buildTypes {
+        release {
+            if (signingConfigs.findByName('release')) signingConfig signingConfigs.release
+        }
+    }
+}
+
+dependencies {
+    androidTestImplementation 'androidx.test:runner:1.7.0'
+    androidTestImplementation 'junit:junit:4.13.2'
+}

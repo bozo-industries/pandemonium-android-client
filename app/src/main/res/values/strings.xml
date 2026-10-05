@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">Pandemonium</string>
+    <string name="connection_error">Unable to connect. Tap to retry</string>
+    <string name="session_error">Session renewal unavailable. Tap to retry</string>
+    <string name="no_link_handler">No app can open this link</string>
+</resources>
