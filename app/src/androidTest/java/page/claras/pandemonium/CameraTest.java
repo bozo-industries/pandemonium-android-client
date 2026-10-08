@@ -53,6 +53,7 @@ public class CameraTest {
             load(web, "https://claras.page/camera-test/", "<script>navigator.mediaDevices.getUserMedia({video:true,audio:false}).then(s=>{document.body.dataset.result=s.getVideoTracks()[0].readyState;s.getTracks().forEach(t=>t.stop());}).catch(e=>document.body.dataset.result=e.name);</script>");
             assertEquals("\"live\"", waitResult(web));
             load(web, "https://untrusted.invalid/", "<script>navigator.mediaDevices.getUserMedia({video:true}).then(s=>{s.getTracks().forEach(t=>t.stop());document.body.dataset.result='unexpected';}).catch(e=>document.body.dataset.result=e.name);</script>");
+            waitForOrigin(web, "https://untrusted.invalid");
             assertEquals("\"NotAllowedError\"", waitResult(web));
         } finally { instrumentation.runOnMainSync(activity::finish); }
     }
@@ -121,6 +122,13 @@ public class CameraTest {
         String result;
         do { result = evaluate(web, "document.body?.dataset.result||''"); if (!"\"\"".equals(result) && !"null".equals(result)) return result; SystemClock.sleep(100); } while (SystemClock.uptimeMillis() < deadline);
         return result;
+    }
+    private void waitForOrigin(WebView web, String expectedOrigin) throws Exception {
+        long deadline = SystemClock.uptimeMillis() + 15_000;
+        String expected = "\"" + expectedOrigin + "\"";
+        String origin;
+        do { origin = evaluate(web, "location.origin"); if (expected.equals(origin)) return; SystemClock.sleep(100); } while (SystemClock.uptimeMillis() < deadline);
+        assertEquals(expected, origin);
     }
     private String evaluate(WebView web, String script) throws Exception {
         CountDownLatch done = new CountDownLatch(1);
