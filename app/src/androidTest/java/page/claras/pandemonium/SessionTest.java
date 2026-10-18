@@ -24,6 +24,7 @@ public class SessionTest {
         context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         store = new SecureSessionStore(context);
         store.clear();
+        new LoyaltyCodeStore(context).clear();
         CountDownLatch done = new CountDownLatch(1);
         InstrumentationRegistry.getInstrumentation().runOnMainSync(() -> CookieManager.getInstance().removeAllCookies(removed -> done.countDown()));
         assertTrue(done.await(10, TimeUnit.SECONDS));
@@ -92,10 +93,12 @@ public class SessionTest {
     @Test public void rejectsRevokedGrantsAndClearsAccessCookies() throws Exception {
         seedCookies();
         sync(new SessionManager(context, (endpoint, cookie, body) -> success(false)));
+        new LoyaltyCodeStore(context).replace(Collections.singletonMap(LoyaltyCodeStore.REWE, "fixture-loyalty-code"));
         store.save(store.read().put("expiresAt", System.currentTimeMillis() - 1));
         SessionManager manager = new SessionManager(context, (endpoint, cookie, body) -> new SessionManager.Reply(401, new JSONObject(), Collections.emptyList()));
         assertEquals(SessionManager.Result.RELOAD, sync(manager));
         assertNull(store.read());
+        assertTrue(new LoyaltyCodeStore(context).read().isEmpty());
         assertNull(SessionManager.cookieValue(CookieManager.getInstance().getCookie(SessionManager.ORIGIN), SessionManager.SESSION));
     }
 

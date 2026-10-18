@@ -1,0 +1,90 @@
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_loyalty_background">
+
+    <TextView
+        android:id="@+id/loyalty_widget_title"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="8dp"
+        android:paddingTop="2dp"
+        android:paddingBottom="6dp"
+        android:text="@string/loyalty_widget_title"
+        android:textColor="#F4EFFA"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+        <LinearLayout
+            android:id="@+id/loyalty_tile_rewe"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_loyalty_tile"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="5dp">
+            <FrameLayout android:layout_width="68dp" android:layout_height="68dp">
+                <ImageView android:id="@+id/loyalty_qr_rewe" android:layout_width="match_parent" android:layout_height="match_parent" android:contentDescription="REWE QR code" android:scaleType="fitCenter" />
+                <TextView android:id="@+id/loyalty_missing_rewe" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="@string/loyalty_widget_not_loaded" android:textColor="#CFC3DF" android:textSize="9sp" android:visibility="gone" />
+            </FrameLayout>
+            <TextView android:id="@+id/loyalty_label_rewe" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="REWE" android:textColor="#F4EFFA" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/loyalty_tile_lidl"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_loyalty_tile"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="5dp">
+            <FrameLayout android:layout_width="68dp" android:layout_height="68dp">
+                <ImageView android:id="@+id/loyalty_qr_lidl" android:layout_width="match_parent" android:layout_height="match_parent" android:contentDescription="Lidl Plus QR code" android:scaleType="fitCenter" />
+                <TextView android:id="@+id/loyalty_missing_lidl" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="@string/loyalty_widget_not_loaded" android:textColor="#CFC3DF" android:textSize="9sp" android:visibility="gone" />
+            </FrameLayout>
+            <TextView android:id="@+id/loyalty_label_lidl" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Lidl Plus" android:textColor="#F4EFFA" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="horizontal">
+        <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" android:text="" />
+        <LinearLayout
+            android:id="@+id/loyalty_tile_action"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_margin="3dp"
+            android:layout_weight="1"
+            android:background="@drawable/widget_loyalty_tile"
+            android:clickable="true"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:padding="5dp">
+            <FrameLayout android:layout_width="68dp" android:layout_height="68dp">
+                <ImageView android:id="@+id/loyalty_qr_action" android:layout_width="match_parent" android:layout_height="match_parent" android:contentDescription="Action QR code" android:scaleType="fitCenter" />
+                <TextView android:id="@+id/loyalty_missing_action" android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center" android:text="@string/loyalty_widget_not_loaded" android:textColor="#CFC3DF" android:textSize="9sp" android:visibility="gone" />
+            </FrameLayout>
+            <TextView android:id="@+id/loyalty_label_action" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="3dp" android:text="Action" android:textColor="#F4EFFA" android:textSize="12sp" android:textStyle="bold" />
+        </LinearLayout>
+        <TextView android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1" android:text="" />
+    </LinearLayout>
+</LinearLayout>

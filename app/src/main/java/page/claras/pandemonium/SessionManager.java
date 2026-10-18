@@ -32,7 +32,9 @@ final class SessionManager {
         Reply(int status, JSONObject body, List<String> cookies) { this.status = status; this.body = body; this.cookies = cookies; }
     }
     private static SessionManager instance;
+    private final Context appContext;
     private final SecureSessionStore store;
+    private final LoyaltyCodeStore loyaltyStore;
     private final Transport transport;
     private final CookieManager cookies = CookieManager.getInstance();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
@@ -46,7 +48,9 @@ final class SessionManager {
     }
 
     SessionManager(Context context, Transport transport) {
-        store = new SecureSessionStore(context);
+        appContext = context.getApplicationContext();
+        store = new SecureSessionStore(appContext);
+        loyaltyStore = new LoyaltyCodeStore(appContext);
         this.transport = transport;
     }
 
@@ -81,7 +85,7 @@ final class SessionManager {
             // A fresh website login starts a new grant. An explicit website logout must stay logged out.
             if ((session != null && !hash(session).equals(state.optString("sessionHash")))
                     || (session == null && now < state.optLong("expiresAt") - 60_000)) {
-                store.clear();
+                clearSession();
                 state = null;
             }
         }
@@ -93,7 +97,7 @@ final class SessionManager {
         }
         boolean enrolling = state.optBoolean("enrolling");
         if (enrolling && (session == null || !hash(session).equals(state.optString("sessionHash")))) {
-            store.clear();
+            clearSession();
             return Result.READY;
         }
         if (!enrolling && !state.has("nextToken") && state.optLong("expiresAt") - now > TimeUnit.DAYS.toMillis(1)) return Result.READY;
@@ -111,7 +115,7 @@ final class SessionManager {
         }
         Reply reply = transport.post(enrolling ? "enroll" : "refresh", cookie, body);
         if (reply.status == 401) {
-            store.clear();
+            clearSession();
             if (!java.util.Objects.equals(session, cookieValue(cookies.getCookie(ORIGIN), SESSION))) return Result.READY;
             installCookies(java.util.Arrays.asList(
                 SESSION + "=; Path=/; Secure; HttpOnly; Max-Age=0",
@@ -136,6 +140,11 @@ final class SessionManager {
             .put("refreshExpiresAt", response.getLong("refreshExpiresAt"));
         store.save(state);
         return !enrolling && expired ? Result.RELOAD : Result.READY;
+    }
+
+    private void clearSession() throws Exception {
+        store.clear();
+        LoyaltyCodeSync.clearCodes(appContext, loyaltyStore);
     }
 
     private void installCookies(List<String> values) throws Exception {

@@ -1,6 +1,6 @@
 # Pandemonium Android Client
 
-A small Android WebView client for `https://claras.page`, maintained separately from the Pandemonium server. Android 8.0 or later is supported. There are no production library dependencies and no JavaScript/native bridge.
+A small Android WebView client for `https://claras.page`, maintained separately from the Pandemonium server. Android 8.0 or later is supported. ZXing Core renders the native loyalty QR widget; there is no JavaScript/native bridge.
 
 The first launch opens Pandemonium's shared sign-in at `/ui`. Sign in there with the normal password and optional TOTP, then use the site's Daemon, Work, and Finance navigation. Subsequent launches restore the last page when a shared session is available. Work's separate legacy password form does not create a shared Android grant.
 
@@ -18,6 +18,10 @@ Camera access is requested on demand for live scanning on the exact `https://cla
 - Refresh credentials are never sent to page JavaScript, browser storage, URLs, external apps, or logs. Clearing Android app data removes this device's stored credentials.
 
 The server must provide `POST /api/android/enroll` and `POST /api/android/refresh`, documented in Pandemonium's `docs/operations/control.md`. The client sends `X-Pandemonium-Client: android`, the WebView user agent, and the binding cookie. Enrollment additionally sends the valid access cookie. Success returns expiry metadata; refresh installs the returned HttpOnly cookies.
+
+## Loyalty QR widget
+
+The home-screen widget shows static Action, REWE, and Lidl Plus passes. It reads the existing authenticated Finance wallet endpoint, stores only non-expiring QR payloads encrypted with Android Keystore, and keeps them available offline. Tap a tile to open its QR code full-screen. Opening Pandemonium refreshes the widget from the current Finance wallet.
 
 ## Build and validate
 

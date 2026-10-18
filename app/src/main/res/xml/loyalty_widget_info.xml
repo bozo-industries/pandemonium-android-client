@@ -1,0 +1,8 @@
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/loyalty_widget_description"
+    android:initialLayout="@layout/widget_loyalty_codes"
+    android:minWidth="280dp"
+    android:minHeight="240dp"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

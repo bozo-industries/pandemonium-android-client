@@ -6,4 +6,12 @@
     <string name="connection_error">Unable to connect. Tap to retry</string>
     <string name="session_error">Session renewal unavailable. Tap to retry</string>
     <string name="no_link_handler">No app can open this link</string>
+    <string name="loyalty_widget_name">Loyalty codes</string>
+    <string name="loyalty_widget_description">Action, REWE, and Lidl Plus QR passes</string>
+    <string name="loyalty_widget_title">Loyalty codes</string>
+    <string name="loyalty_widget_not_loaded">Open Pandemonium to load</string>
+    <string name="loyalty_qr_open_app">Open Pandemonium</string>
+    <string name="loyalty_qr_loading">Loading code</string>
+    <string name="loyalty_qr_unavailable">Open Pandemonium and sign in to load this pass.</string>
+    <string name="loyalty_qr_content_description">%1$s QR code</string>
 </resources>
