@@ -92,13 +92,26 @@ public class LoyaltyWidgetTest {
 
     @Test public void homeWidgetTileShowsThePassAndOpensItsLargeQr() throws Exception {
         String payload = "R123456789";
-        store.replace(Collections.singletonMap(LoyaltyCodeStore.REWE, payload));
-        RemoteViews remoteViews = LoyaltyWidgetViews.create(context,
-            Collections.singletonMap(LoyaltyCodeStore.REWE, payload));
+        Map<String, String> passes = new HashMap<>();
+        passes.put(LoyaltyCodeStore.REWE, payload);
+        passes.put(LoyaltyCodeStore.LIDL, "L123456789");
+        passes.put(LoyaltyCodeStore.ACTION, "A123456789");
+        store.replace(passes);
+        RemoteViews remoteViews = LoyaltyWidgetViews.create(context, passes);
         View widget = remoteViews.apply(context, new FrameLayout(context));
         View tile = widget.findViewById(R.id.loyalty_tile_rewe);
+        View lidlTile = widget.findViewById(R.id.loyalty_tile_lidl);
+        View actionTile = widget.findViewById(R.id.loyalty_tile_action);
         assertNotNull(tile);
+        assertNotNull(lidlTile);
+        assertNotNull(actionTile);
+        assertSame("All loyalty tiles must occupy the same horizontal row", tile.getParent(), lidlTile.getParent());
+        assertSame("Action must share the row with REWE and Lidl", tile.getParent(), actionTile.getParent());
+        assertEquals(tile.getTop(), lidlTile.getTop());
+        assertEquals(tile.getTop(), actionTile.getTop());
         assertEquals(View.VISIBLE, widget.findViewById(R.id.loyalty_qr_rewe).getVisibility());
+        assertEquals(View.VISIBLE, widget.findViewById(R.id.loyalty_qr_lidl).getVisibility());
+        assertEquals(View.VISIBLE, widget.findViewById(R.id.loyalty_qr_action).getVisibility());
         assertEquals(View.GONE, widget.findViewById(R.id.loyalty_missing_rewe).getVisibility());
 
         Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
