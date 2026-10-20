@@ -232,6 +232,7 @@ public final class MainActivity extends Activity {
             if (result == SessionManager.Result.RELOAD && loaded) web.reload();
             if (result == SessionManager.Result.READY || result == SessionManager.Result.RELOAD) {
                 LoyaltyCodeSync.refreshIfWidgetExists(getApplicationContext(), result == SessionManager.Result.RELOAD);
+                HomeWidgetSync.refreshIfWidgetsExist(getApplicationContext(), result == SessionManager.Result.RELOAD);
             }
             if (result == SessionManager.Result.UNAVAILABLE) showSessionError();
         });

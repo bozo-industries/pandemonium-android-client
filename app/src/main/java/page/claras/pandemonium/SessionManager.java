@@ -145,6 +145,7 @@ final class SessionManager {
     private void clearSession() throws Exception {
         store.clear();
         LoyaltyCodeSync.clearCodes(appContext, loyaltyStore);
+        HomeWidgetSync.clear(appContext);
     }
 
     private void installCookies(List<String> values) throws Exception {

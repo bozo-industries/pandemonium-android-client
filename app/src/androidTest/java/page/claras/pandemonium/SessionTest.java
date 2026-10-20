@@ -94,11 +94,13 @@ public class SessionTest {
         seedCookies();
         sync(new SessionManager(context, (endpoint, cookie, body) -> success(false)));
         new LoyaltyCodeStore(context).replace(Collections.singletonMap(LoyaltyCodeStore.REWE, "fixture-loyalty-code"));
+        new HomeWidgetStore(context).save(new JSONObject().put("mail", new JSONObject().put("private", "fixture-mail")));
         store.save(store.read().put("expiresAt", System.currentTimeMillis() - 1));
         SessionManager manager = new SessionManager(context, (endpoint, cookie, body) -> new SessionManager.Reply(401, new JSONObject(), Collections.emptyList()));
         assertEquals(SessionManager.Result.RELOAD, sync(manager));
         assertNull(store.read());
         assertTrue(new LoyaltyCodeStore(context).read().isEmpty());
+        assertEquals(0, new HomeWidgetStore(context).read().length());
         assertNull(SessionManager.cookieValue(CookieManager.getInstance().getCookie(SessionManager.ORIGIN), SessionManager.SESSION));
     }
 

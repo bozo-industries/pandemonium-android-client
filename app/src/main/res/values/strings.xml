@@ -1,4 +1,21 @@
 <resources>
+    <string name="mail_widget_name">Mail</string>
+    <string name="mail_widget_description">Latest mail from Pandemonium</string>
+    <string name="calendar_widget_name">Calendar</string>
+    <string name="calendar_widget_description">Upcoming events from Pandemonium</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_sign_in">Open Pandemonium to sign in</string>
+    <string name="widget_no_mail">No mail</string>
+    <string name="widget_no_events">No upcoming events</string>
+    <string name="widget_load">Tap refresh to load</string>
+    <string name="widget_all_day">All day</string>
+    <string name="widget_no_subject">No subject</string>
+    <string name="widget_updated">Updated %1$s</string>
+    <string name="widget_loading">Loading</string>
+    <string name="widget_unavailable">Unable to load. Tap refresh to retry.</string>
+    <string name="widget_missing_item">This item is no longer available.</string>
+    <string name="widget_open_app">Open Pandemonium</string>
+    <string name="widget_back">Back</string>
     <string name="app_name">Pandemonium</string>
     <string name="take_photo">Take photo</string>
     <string name="choose_file">Choose file</string>

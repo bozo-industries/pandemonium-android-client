@@ -19,6 +19,24 @@ Camera access is requested on demand for live scanning on the exact `https://cla
 
 The server must provide `POST /api/android/enroll` and `POST /api/android/refresh`, documented in Pandemonium's `docs/operations/control.md`. The client sends `X-Pandemonium-Client: android`, the WebView user agent, and the binding cookie. Enrollment additionally sends the valid access cookie. Success returns expiry metadata; refresh installs the returned HttpOnly cookies.
 
+## Mail and calendar widgets
+
+Mail and Calendar are native, resizable, scrolling home-screen widgets with a
+translucent background shared with the loyalty widget. Mail shows the configured
+Pandemonium inbox and opens a selected message as plain text. Calendar shows the
+next 31 days, including all-day entries, and opens event details.
+
+Their refresh button and background jobs use the existing native Android session;
+no provider passwords or tokens are configured in the widgets. Android schedules
+background refresh around every 30 minutes and may defer it while offline or in
+battery-saving modes. Opening the app also refreshes installed widgets. Last good
+snapshots are encrypted with Android Keystore, remain readable offline, show their
+age when stale, and are cleared when the session is revoked or signed out.
+
+The server must provide the owner-only `email.widget.inbox`,
+`email.widget.message`, and `calendar.widget.agenda` RPCs. Mail and calendar are
+read-only; the widget detail views do not send mail or edit events.
+
 ## Loyalty QR widget
 
 The home-screen widget shows static Action, REWE, and Lidl Plus passes. It reads the existing authenticated Finance wallet endpoint, stores only non-expiring QR payloads encrypted with Android Keystore, and keeps them available offline. Tap a tile to open its QR code full-screen. Opening Pandemonium refreshes the widget from the current Finance wallet.

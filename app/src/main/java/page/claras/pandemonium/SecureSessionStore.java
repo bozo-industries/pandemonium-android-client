@@ -14,11 +14,16 @@ import javax.crypto.spec.GCMParameterSpec;
 
 /** Only ciphertext leaves Android Keystore-backed encryption; app backup is disabled. */
 final class SecureSessionStore {
-    private static final String ALIAS = "pandemonium.refresh.v1";
+    private final String alias;
     private final SharedPreferences preferences;
 
     SecureSessionStore(Context context) {
-        preferences = context.getSharedPreferences("native-session", Context.MODE_PRIVATE);
+        this(context, "native-session", "pandemonium.refresh.v1");
+    }
+
+    SecureSessionStore(Context context, String name, String alias) {
+        this.alias = alias;
+        preferences = context.getApplicationContext().getSharedPreferences(name, Context.MODE_PRIVATE);
     }
 
     JSONObject read() throws Exception {
@@ -48,9 +53,9 @@ final class SecureSessionStore {
     private SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
-        if (store.containsAlias(ALIAS)) return (SecretKey) store.getKey(ALIAS, null);
+        if (store.containsAlias(alias)) return (SecretKey) store.getKey(alias, null);
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-        generator.init(new KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+        generator.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).build());
         return generator.generateKey();
     }
