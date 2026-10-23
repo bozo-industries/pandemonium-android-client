@@ -91,6 +91,34 @@ public class CameraTest {
         } finally { instrumentation.removeMonitor(monitor); instrumentation.runOnMainSync(activity::finish); }
     }
 
+    @Test public void hidesOnlyTheDaemonTabAcrossTrustedPageLoads() throws Exception {
+        Activity activity = launch();
+        try {
+            WebView web = web(activity);
+            String markup = "<style>.pandemonium-managed-nav{display:grid;grid-template-columns:repeat(3,1fr)}a{display:flex}</style>"
+                + "<nav class='pandemonium-managed-nav'><a href='/ui'>Daemon</a><a href='/work/'>Work</a><a href='/finance/'>Finance</a></nav>"
+                + "<a id='direct-daemon' href='/ui'>Direct Daemon link</a>";
+            String observed = "JSON.stringify([...document.querySelectorAll('a')].map(a=>[a.getAttribute('href'),getComputedStyle(a).display]))";
+            for (String path : new String[]{"/work/", "/finance/"}) {
+                load(web, "https://claras.page" + path, markup);
+                long deadline = SystemClock.uptimeMillis() + 10_000;
+                String result;
+                do {
+                    result = evaluate(web, observed);
+                    if (result.contains("none")) break;
+                    SystemClock.sleep(100);
+                } while (SystemClock.uptimeMillis() < deadline);
+                assertEquals("\"[[\\\"/ui\\\",\\\"none\\\"],[\\\"/work/\\\",\\\"flex\\\"],[\\\"/finance/\\\",\\\"flex\\\"],[\\\"/ui\\\",\\\"flex\\\"]]\"", result);
+                assertEquals("1", evaluate(web, "document.querySelectorAll('#pandemonium-android-nav').length"));
+                assertEquals("2", evaluate(web, "getComputedStyle(document.querySelector('nav')).gridTemplateColumns.split(' ').length"));
+            }
+            load(web, "https://untrusted.invalid/", markup);
+            waitForOrigin(web, "https://untrusted.invalid");
+            assertEquals("\"flex\"", evaluate(web, "getComputedStyle(document.querySelector('nav a')).display"));
+            assertEquals("0", evaluate(web, "document.querySelectorAll('#pandemonium-android-nav').length"));
+        } finally { instrumentation.runOnMainSync(activity::finish); }
+    }
+
     private Activity launch() throws Exception {
         Activity activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         WebView web = web(activity);

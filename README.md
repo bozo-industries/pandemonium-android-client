@@ -2,7 +2,7 @@
 
 A small Android WebView client for `https://claras.page`, maintained separately from the Pandemonium server. Android 8.0 or later is supported. ZXing Core renders the native loyalty QR widget; there is no JavaScript/native bridge.
 
-The first launch opens Pandemonium's shared sign-in at `/ui`. Sign in there with the normal password and optional TOTP, then use the site's Daemon, Work, and Finance navigation. Subsequent launches restore the last page when a shared session is available. Work's separate legacy password form does not create a shared Android grant.
+The first launch opens Pandemonium's shared sign-in at `/ui`. Sign in there with the normal password and optional TOTP, then use Work and Finance navigation. The Android shell hides the Daemon tab; desktop navigation and direct Daemon routes remain available. Subsequent launches restore the last page when a shared session is available. Work's separate legacy password form does not create a shared Android grant.
 
 The shell handles Android back navigation, keyboard/system-bar insets, file picking, page-load progress, and connection retry. Links outside the exact HTTPS origin open in the appropriate external app. TLS errors and cleartext requests are not bypassed.
 

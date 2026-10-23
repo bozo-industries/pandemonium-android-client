@@ -99,10 +99,14 @@ public final class MainActivity extends Activity {
                 return true;
             }
             @Override public void onPageFinished(WebView view, String url) {
+                hideDaemonNavigation(view, url);
                 CookieManager.getInstance().flush();
                 Uri page = Uri.parse(url);
                 if (internal(page) && page.getPath() != null) getPreferences(MODE_PRIVATE).edit().putString("lastPath", page.getPath()).apply();
                 syncSession();
+            }
+            @Override public void onPageCommitVisible(WebView view, String url) {
+                hideDaemonNavigation(view, url);
             }
             @Override public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
                 if (request.isForMainFrame()) { retry.setText(R.string.connection_error); retry.setVisibility(View.VISIBLE); }
@@ -157,6 +161,17 @@ public final class MainActivity extends Activity {
     static boolean internal(Uri uri) {
         return "https".equals(uri.getScheme()) && "claras.page".equals(uri.getHost())
             && (uri.getPort() == -1 || uri.getPort() == 443) && uri.getUserInfo() == null;
+    }
+
+    private static void hideDaemonNavigation(WebView view, String url) {
+        if (url == null || !internal(Uri.parse(url))) return;
+        view.evaluateJavascript("(() => {"
+            + "if (location.origin !== 'https://claras.page' || document.getElementById('pandemonium-android-nav')) return;"
+            + "const style = document.createElement('style'); style.id = 'pandemonium-android-nav';"
+            + "style.textContent = '.pandemonium-managed-nav a[href=\"/ui\"] { display: none !important; }"
+            + "@media (max-width: 1099px) { .pandemonium-managed-nav { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; } }';"
+            + "(document.head || document.documentElement).appendChild(style);"
+            + "})()", null);
     }
 
     static boolean cameraAllowed(Uri origin, String[] resources) {
