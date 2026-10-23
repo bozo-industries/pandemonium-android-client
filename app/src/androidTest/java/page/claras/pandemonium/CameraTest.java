@@ -13,6 +13,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.PermissionRequest;
+import android.webkit.CookieManager;
 import android.webkit.WebView;
 import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
@@ -92,9 +93,17 @@ public class CameraTest {
     }
 
     @Test public void hidesOnlyTheDaemonTabAcrossTrustedPageLoads() throws Exception {
-        Activity activity = launch();
+        new SecureSessionStore(context).clear();
+        CountDownLatch cleared = new CountDownLatch(1);
+        instrumentation.runOnMainSync(() -> CookieManager.getInstance().removeAllCookies(ignored -> cleared.countDown()));
+        assertTrue("Fixture cookies cleared", cleared.await(10, TimeUnit.SECONDS));
+        Activity activity = instrumentation.startActivitySync(new Intent(context, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         try {
             WebView web = web(activity);
+            CountDownLatch initialized = new CountDownLatch(1);
+            SessionManager.get(context).sync(ignored -> initialized.countDown());
+            assertTrue("Native session initialization completed", initialized.await(10, TimeUnit.SECONDS));
+            instrumentation.runOnMainSync(web::stopLoading);
             String markup = "<style>.pandemonium-managed-nav{display:grid;grid-template-columns:repeat(3,1fr)}a{display:flex}</style>"
                 + "<nav class='pandemonium-managed-nav'><a href='/ui'>Daemon</a><a href='/work/'>Work</a><a href='/finance/'>Finance</a></nav>"
                 + "<a id='direct-daemon' href='/ui'>Direct Daemon link</a>";
@@ -105,7 +114,9 @@ public class CameraTest {
                 String result;
                 do {
                     result = evaluate(web, observed);
-                    if (result.contains("none")) break;
+                    String ready = evaluate(web, "location.href === 'https://claras.page" + path
+                        + "' && document.querySelectorAll('#pandemonium-android-nav').length === 1");
+                    if ("true".equals(ready) && result.contains("none")) break;
                     SystemClock.sleep(100);
                 } while (SystemClock.uptimeMillis() < deadline);
                 assertEquals("\"[[\\\"/ui\\\",\\\"none\\\"],[\\\"/work/\\\",\\\"flex\\\"],[\\\"/finance/\\\",\\\"flex\\\"],[\\\"/ui\\\",\\\"flex\\\"]]\"", result);
@@ -162,7 +173,7 @@ public class CameraTest {
         CountDownLatch done = new CountDownLatch(1);
         AtomicReference<String> result = new AtomicReference<>();
         instrumentation.runOnMainSync(() -> web.evaluateJavascript(script, value -> { result.set(value); done.countDown(); }));
-        assertTrue(done.await(5, TimeUnit.SECONDS));
+        assertTrue("WebView JavaScript callback completed", done.await(5, TimeUnit.SECONDS));
         return result.get();
     }
 }

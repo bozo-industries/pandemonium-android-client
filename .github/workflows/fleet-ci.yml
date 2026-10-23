@@ -37,4 +37,16 @@ jobs:
         api-level: 35
         arch: x86_64
         disable-animations: true
-        script: ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest connectedDebugAndroidTest
+        script: >-
+          ./gradlew --no-daemon assembleDebug assembleDebugAndroidTest connectedDebugAndroidTest ||
+          { test_status=$?; adb logcat -d -v threadtime > app/build/instrumentation-logcat.txt; exit "$test_status"; }
+    - name: Retain failed instrumentation results
+      if: failure()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+      with:
+        name: failed-instrumentation-results
+        retention-days: 7
+        path: |
+          app/build/reports/androidTests/
+          app/build/outputs/androidTest-results/
+          app/build/instrumentation-logcat.txt
