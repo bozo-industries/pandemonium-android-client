@@ -22,19 +22,27 @@ The server must provide `POST /api/android/enroll` and `POST /api/android/refres
 ## Mail and calendar widgets
 
 Mail and Calendar are native, resizable, scrolling home-screen widgets with a
-translucent background shared with the loyalty widget. Mail shows the configured
-Pandemonium inbox and opens a selected message as plain text. Calendar shows the
+translucent background shared with the loyalty widget. Mail shows Aqua Mail's
+local unread messages and opens the selected email in Aqua Mail using the exact
+`view_uri` supplied by its read-only integration. Pandemonium does not render a
+mail inbox or message reader. The header opens Aqua Mail normally; a missing
+message never falls back to a different email or the inbox. Calendar shows the
 next 31 days, including all-day entries, and opens event details.
 
-Their refresh button and background jobs use the existing native Android session;
-no provider passwords or tokens are configured in the widgets. Android schedules
+Calendar refresh uses the existing native Android session. Mail requires Aqua Mail
+(`org.kman.AquaMail`) and its `org.kman.AquaMail.datax.READ_MESSAGES` permission;
+tap the widget header to grant access if the installed version requests it at runtime.
+Only message summaries and viewing links are read; no bodies, account credentials,
+message actions or notification access are requested. This uses Aqua Mail's
+[published integration API](https://forum.aqua-mail.com/index.php?topic=4476.0),
+which exposes unread messages. No provider passwords or tokens are configured in
+the widgets. Android schedules
 background refresh around every 30 minutes and may defer it while offline or in
 battery-saving modes. Opening the app also refreshes installed widgets. Last good
 snapshots are encrypted with Android Keystore, remain readable offline, show their
 age when stale, and are cleared when the session is revoked or signed out.
 
-The server must provide the owner-only `email.widget.inbox`,
-`email.widget.message`, and `calendar.widget.agenda` RPCs. Mail and calendar are
+The server must provide the owner-only `calendar.widget.agenda` RPC. Mail and calendar are
 read-only; the widget detail views do not send mail or edit events.
 
 ## Loyalty QR widget

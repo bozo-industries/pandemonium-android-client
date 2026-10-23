@@ -10,6 +10,10 @@
     <string name="widget_load">Tap refresh to load</string>
     <string name="widget_all_day">All day</string>
     <string name="widget_no_subject">No subject</string>
+    <string name="aquamail_unavailable">Aqua Mail is not available</string>
+    <string name="aquamail_message_unavailable">This email is no longer available in Aqua Mail</string>
+    <string name="aquamail_connect">Tap to open Aqua Mail</string>
+    <string name="aquamail_allow">Tap to allow Aqua Mail access</string>
     <string name="widget_updated">Updated %1$s</string>
     <string name="widget_loading">Loading</string>
     <string name="widget_unavailable">Unable to load. Tap refresh to retry.</string>

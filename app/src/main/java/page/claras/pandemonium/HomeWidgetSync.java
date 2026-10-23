@@ -34,39 +34,47 @@ final class HomeWidgetSync {
             nextAttempt = android.os.SystemClock.elapsedRealtime() + 60_000L;
         }
         new Handler(Looper.getMainLooper()).post(() -> SessionManager.get(app).sync(result -> {
-            if (result == SessionManager.Result.UNAVAILABLE) { finish(app); return; }
             final long requestGeneration;
             synchronized (LOCK) { requestGeneration = generation; }
-            WORKER.execute(() -> fetch(app, requestGeneration));
+            WORKER.execute(() -> fetch(app, requestGeneration, result != SessionManager.Result.UNAVAILABLE));
         }));
     }
 
-    private static void fetch(Context app, long requestGeneration) {
+    private static void fetch(Context app, long requestGeneration, boolean calendarAvailable) {
         try {
-            String cookie = CookieManager.getInstance().getCookie(SessionManager.ORIGIN);
-            if (SessionManager.cookieValue(cookie, SessionManager.SESSION) == null) { clear(app); return; }
             HomeWidgetStore store = new HomeWidgetStore(app);
             JSONObject cache = store.read();
+            if (HomeWidgetProvider.ids(app, MailWidgetProvider.class).length > 0) {
+                JSONObject mail;
+                try { mail = AquaMailSource.read(app); }
+                catch (Exception unavailable) { mail = AquaMailSource.unavailable(false); }
+                cache.put(HomeWidgetViews.MAIL, mail);
+            }
+            synchronized (LOCK) {
+                if (generation != requestGeneration) return;
+                store.save(cache);
+            }
+            if (!calendarAvailable) return;
+            String cookie = CookieManager.getInstance().getCookie(SessionManager.ORIGIN);
+            if (SessionManager.cookieValue(cookie, SessionManager.SESSION) == null) {
+                cache.put("signedOut", true).remove(HomeWidgetViews.CALENDAR);
+                synchronized (LOCK) { if (generation == requestGeneration) store.save(cache); }
+                return;
+            }
             cache.put("signedOut", false);
             synchronized (LOCK) {
                 if (generation != requestGeneration) return;
                 store.save(cache);
             }
             boolean success = false;
-            for (String kind : new String[]{HomeWidgetViews.MAIL, HomeWidgetViews.CALENDAR}) {
+            for (String kind : new String[]{HomeWidgetViews.CALENDAR}) {
                 // A detail screen can request a refresh even before a widget is installed.
                 try {
                     JSONObject params = new JSONObject();
-                    String method;
-                    if (HomeWidgetViews.MAIL.equals(kind)) {
-                        params.put("refresh", true); method = "email.widget.inbox";
-                    } else {
-                        LocalDate today = LocalDate.now();
-                        params.put("startDay", today.toString()).put("endDay", today.plusDays(31).toString());
-                        method = "calendar.widget.agenda";
-                    }
-                    JSONObject reply = HomeWidgetApi.call(app, method, params);
-                    JSONArray items = reply.optJSONArray(HomeWidgetViews.MAIL.equals(kind) ? "messages" : "events");
+                    LocalDate today = LocalDate.now();
+                    params.put("startDay", today.toString()).put("endDay", today.plusDays(31).toString());
+                    JSONObject reply = HomeWidgetApi.call(app, "calendar.widget.agenda", params);
+                    JSONArray items = reply.optJSONArray("events");
                     if (items == null) continue;
                     JSONObject section = new JSONObject().put("items", items).put("updatedAt", System.currentTimeMillis());
                     synchronized (LOCK) {
@@ -74,7 +82,11 @@ final class HomeWidgetSync {
                         cache.put(kind, section); store.save(cache);
                     }
                     success = true;
-                } catch (HomeWidgetApi.Unauthorized error) { clear(app); return; }
+                } catch (HomeWidgetApi.Unauthorized error) {
+                    cache.put("signedOut", true).remove(HomeWidgetViews.CALENDAR);
+                    synchronized (LOCK) { if (generation == requestGeneration) store.save(cache); }
+                    return;
+                }
                 catch (Exception ignored) { /* Preserve the other section and its last successful snapshot. */ }
             }
             if (success) synchronized (LOCK) { nextAttempt = android.os.SystemClock.elapsedRealtime() + 15 * 60_000L; }

@@ -28,19 +28,22 @@ final class HomeWidgetViews {
         views.setEmptyView(R.id.home_widget_list, R.id.home_widget_empty);
         JSONObject section = cache.optJSONObject(kind);
         boolean signedOut = cache.optBoolean("signedOut", section == null);
-        views.setTextViewText(R.id.home_widget_empty, context.getString(signedOut ? R.string.widget_sign_in
-            : section == null ? R.string.widget_load : MAIL.equals(kind) ? R.string.widget_no_mail : R.string.widget_no_events));
+        int empty = signedOut ? R.string.widget_sign_in : section == null ? R.string.widget_load : R.string.widget_no_events;
+        if (MAIL.equals(kind)) empty = section == null || !section.optBoolean("aquaMail") ? R.string.aquamail_connect
+            : section.optBoolean("permissionRequired") ? R.string.aquamail_allow
+            : section.optBoolean("unavailable") ? R.string.aquamail_unavailable : R.string.widget_no_mail;
+        views.setTextViewText(R.id.home_widget_empty, context.getString(empty));
         long updated = section == null ? 0 : section.optLong("updatedAt");
         boolean stale = updated > 0 && System.currentTimeMillis() - updated > 60 * 60_000L;
         views.setViewVisibility(R.id.home_widget_updated, stale ? View.VISIBLE : View.GONE);
         if (stale) views.setTextViewText(R.id.home_widget_updated, context.getString(R.string.widget_updated,
             DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(updated))));
-        Intent open = new Intent(context, WidgetDetailActivity.class).putExtra("kind", kind)
+        Intent open = new Intent(context, MAIL.equals(kind) ? MailClientActivity.class : WidgetDetailActivity.class).putExtra("kind", kind)
             .setData(Uri.parse("pandemonium://widget/" + kind));
         views.setOnClickPendingIntent(R.id.home_widget_title, PendingIntent.getActivity(context, kind.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         views.setOnClickPendingIntent(R.id.home_widget_empty, PendingIntent.getActivity(context, 900,
-            new Intent(context, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            MAIL.equals(kind) ? open : new Intent(context, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         // Collection fill-in intents carry only an opaque item id. The activity is explicit and non-exported.
         views.setPendingIntentTemplate(R.id.home_widget_list, PendingIntent.getActivity(context, kind.hashCode() + 1, open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE));
@@ -86,7 +89,16 @@ final class HomeWidgetViews {
         JSONObject section = cache.optJSONObject(kind);
         JSONArray items = section == null ? null : section.optJSONArray("items");
         if (items == null) return new JSONArray();
-        if (MAIL.equals(kind)) return items;
+        if (MAIL.equals(kind)) {
+            if (!section.optBoolean("aquaMail")) return new JSONArray();
+            JSONArray linked = new JSONArray();
+            for (int i = 0; i < Math.min(100, items.length()); i++) {
+                JSONObject item = items.optJSONObject(i);
+                if (item != null && !item.optString("messageId").isEmpty()
+                    && MailClientActivity.viewIntent(item.optString("viewUri")) != null) linked.put(item);
+            }
+            return linked;
+        }
         JSONArray upcoming = new JSONArray();
         for (int i = 0; i < Math.min(100, items.length()); i++) {
             JSONObject item = items.optJSONObject(i);

@@ -183,10 +183,12 @@ public class HomeWidgetTest {
         return null;
     }
     private JSONObject fixture() throws Exception {
-        JSONObject mail = new JSONObject().put("items", new JSONArray().put(new JSONObject().put("messageId", "fixture-mail-1")
+        JSONObject mail = new JSONObject().put("aquaMail", true).put("items", new JSONArray().put(new JSONObject().put("messageId", "fixture-mail-1")
+            .put("viewUri", "content://org.kman.AquaMail.datax.messages/fixture/1")
             .put("subject", "Parcel ready").put("date", Instant.now().toString()).put("snippet", "Your parcel is ready for collection.")
             .put("from", new JSONArray().put(new JSONObject().put("name", "Delivery").put("address", "delivery@example.test"))))
             .put(new JSONObject().put("messageId", "fixture-mail-2").put("subject", "Your booking")
+                .put("viewUri", "content://org.kman.AquaMail.datax.messages/fixture/2")
                 .put("date", Instant.now().toString()).put("snippet", "Your reservation is confirmed.")
                 .put("from", new JSONArray().put(new JSONObject().put("name", "Travel").put("address", "travel@example.test")))))
             .put("updatedAt", System.currentTimeMillis());
