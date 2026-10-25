@@ -11,6 +11,9 @@ import android.webkit.WebViewClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import androidx.test.platform.app.InstrumentationRegistry;
+import androidx.test.runner.lifecycle.ActivityLifecycleCallback;
+import androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry;
+import androidx.test.runner.lifecycle.Stage;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.atomic.AtomicReference;
@@ -59,11 +62,24 @@ public class WorkNavigationTest {
 
     @Test public void coldWorkIntentOverridesLastPageAndRecreationRestoresNavigation() throws Exception {
         context.getSharedPreferences("MainActivity", Context.MODE_PRIVATE).edit().putString("lastPath", "/finance/").commit();
-        Activity activity = instrumentation.startActivitySync(MainActivity.workIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        ActivityLifecycleCallback fixture = (created, stage) -> {
+            if (stage != Stage.CREATED || !(created instanceof MainActivity)) return;
+            WebView createdWeb = find(created.getWindow().getDecorView());
+            assertNotNull(createdWeb);
+            createdWeb.setWebViewClient(new WebViewClient() {
+                @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+                    return new WebResourceResponse("text/html", "utf-8", new ByteArrayInputStream(
+                        "<html><body>Navigation fixture</body></html>".getBytes(StandardCharsets.UTF_8)));
+                }
+            });
+        };
+        instrumentation.runOnMainSync(() -> ActivityLifecycleMonitorRegistry.getInstance().addLifecycleCallback(fixture));
+        Activity activity = null;
         try {
+            activity = instrumentation.startActivitySync(MainActivity.workIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             assertUrl(instrumentation, activity, "https://claras.page/work/");
             WebView web = web(instrumentation, activity);
-            instrumentation.runOnMainSync(() -> web.loadDataWithBaseURL("https://claras.page/finance/", "<html>Fixture</html>", "text/html", "UTF-8", "https://claras.page/finance/"));
+            instrumentation.runOnMainSync(() -> web.loadUrl("https://claras.page/finance/"));
             assertUrl(instrumentation, activity, "https://claras.page/finance/");
             Instrumentation.ActivityMonitor monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
             try {
@@ -75,7 +91,10 @@ public class WorkNavigationTest {
             } finally { instrumentation.removeMonitor(monitor); }
         } finally {
             Activity done = activity;
-            instrumentation.runOnMainSync(done::finish);
+            instrumentation.runOnMainSync(() -> {
+                if (done != null) done.finish();
+                ActivityLifecycleMonitorRegistry.getInstance().removeLifecycleCallback(fixture);
+            });
             context.getSharedPreferences("MainActivity", Context.MODE_PRIVATE).edit().clear().commit();
         }
     }
@@ -92,11 +111,14 @@ public class WorkNavigationTest {
         WebView web = web(instrumentation, activity);
         AtomicReference<String> actual = new AtomicReference<>();
         AtomicReference<Boolean> committed = new AtomicReference<>(false);
+        AtomicReference<String> witness = new AtomicReference<>();
         long deadline = android.os.SystemClock.elapsedRealtime() + 10000;
         do {
             instrumentation.runOnMainSync(() -> {
                 actual.set(web.getUrl());
                 android.webkit.WebHistoryItem current = web.copyBackForwardList().getCurrentItem();
+                witness.set("progress=" + web.getProgress() + ", historyUrl=" + (current == null ? "none" : current.getUrl())
+                    + ", historyOriginal=" + (current == null ? "none" : current.getOriginalUrl()));
                 committed.set(!requireCommit || (web.getProgress() == 100 && current != null && expected.equals(current.getUrl())));
             });
             if (expected.equals(actual.get()) && committed.get()) {
@@ -105,7 +127,7 @@ public class WorkNavigationTest {
             }
             Thread.sleep(50);
         } while (android.os.SystemClock.elapsedRealtime() < deadline);
-        fail("Navigation did not " + (requireCommit ? "commit " : "request ") + expected + "; observed " + actual.get());
+        fail("Navigation did not " + (requireCommit ? "commit " : "request ") + expected + "; observed " + actual.get() + "; " + witness.get());
     }
 
     private static WebView web(Instrumentation instrumentation, Activity activity) {
