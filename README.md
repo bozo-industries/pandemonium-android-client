@@ -54,7 +54,7 @@ battery-saving modes. Opening the app also refreshes installed widgets. Last goo
 snapshots are encrypted with Android Keystore, remain readable offline, show their
 age when stale, and are cleared when the session is revoked or signed out.
 
-The server must provide the owner-only `calendar.widget.agenda` RPC. Mail and calendar are
+The server must provide the owner-only `work.schedule.currentWeek` RPC. Mail and calendar are
 read-only; the widget detail views do not send mail or edit events.
 
 ## Loyalty QR widget
