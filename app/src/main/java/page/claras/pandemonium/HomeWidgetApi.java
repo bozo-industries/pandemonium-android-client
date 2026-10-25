@@ -15,7 +15,8 @@ final class HomeWidgetApi {
 
     static JSONObject call(Context context, String method, JSONObject params) throws Exception {
         if (!method.equals("email.widget.inbox") && !method.equals("email.widget.message")
-                && !method.equals("calendar.widget.agenda")) throw new IllegalArgumentException("Unsupported widget read");
+                && !method.equals("calendar.widget.agenda") && !method.equals(WorkWeekSource.METHOD))
+            throw new IllegalArgumentException("Unsupported widget read");
         String cookie = CookieManager.getInstance().getCookie(SessionManager.ORIGIN);
         if (SessionManager.cookieValue(cookie, SessionManager.SESSION) == null) throw new Unauthorized();
         HttpURLConnection connection = (HttpURLConnection) new URL(SessionManager.ORIGIN + "/api/rpc").openConnection();

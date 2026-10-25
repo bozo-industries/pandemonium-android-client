@@ -26,10 +26,22 @@ translucent background shared with the loyalty widget. Mail shows Aqua Mail's
 local unread messages and opens the selected email in Aqua Mail using the exact
 `view_uri` supplied by its read-only integration. Pandemonium does not render a
 mail inbox or message reader. The header opens Aqua Mail normally; a missing
-message never falls back to a different email or the inbox. Calendar shows the
-next 31 days, including all-day entries, and opens event details.
+message never falls back to a different email or the inbox. Calendar shows every
+planned Work shift in the current Monday–Sunday week in Europe/Berlin, including
+completed shifts earlier in the week. The header labels the cached week, and taps
+open native shift details. Approved shift plans and confirmed nonworking days
+follow Work's existing schedule rules.
 
-Calendar refresh uses the existing native Android session. Mail requires Aqua Mail
+Calendar refresh uses the existing native Android session and the read-only
+`work.schedule.currentWeek` API. The source timestamp reflects Work's projection
+cache; refreshing a widget does not force a new Calendar-provider read within
+that cache's local day. A missing or failed Work API is shown as unavailable,
+with the last successful current-week snapshot retained and dated. Older personal
+agenda caches are not displayed as Work shifts. There is no shift-count cap;
+responses over 1 MiB or a combined encrypted cache over 512,000 characters fail
+explicitly rather than silently truncating.
+
+Mail requires Aqua Mail
 (`org.kman.AquaMail`) and its `org.kman.AquaMail.datax.READ_MESSAGES` permission;
 tap the widget header to grant access if the installed version requests it at runtime.
 Only message summaries and viewing links are read; no bodies, account credentials,

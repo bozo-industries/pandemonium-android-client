@@ -21,23 +21,37 @@ final class HomeWidgetViews {
 
     static RemoteViews create(Context context, String kind, int id, JSONObject cache) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_home_list);
-        views.setTextViewText(R.id.home_widget_title, context.getString(MAIL.equals(kind) ? R.string.mail_widget_name : R.string.calendar_widget_name));
+        views.setTextViewText(R.id.home_widget_title, context.getString(MAIL.equals(kind) ? R.string.mail_widget_name : R.string.work_widget_title));
         Intent adapter = new Intent(context, HomeWidgetListService.class).putExtra("kind", kind)
             .setData(Uri.parse("pandemonium://widget/" + kind + "/" + id));
         views.setRemoteAdapter(R.id.home_widget_list, adapter);
         views.setEmptyView(R.id.home_widget_list, R.id.home_widget_empty);
         JSONObject section = cache.optJSONObject(kind);
+        if (CALENDAR.equals(kind) && WorkWeekSource.isCurrent(section, Instant.now())) {
+            LocalDate start = LocalDate.parse(section.optString("weekStart"));
+            LocalDate end = start.plusDays(6);
+            String first = DateTimeFormatter.ofPattern(start.getMonth() == end.getMonth() ? "d" : "d MMM", Locale.getDefault()).format(start);
+            String last = DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()).format(end);
+            views.setTextViewText(R.id.home_widget_title, context.getString(R.string.work_widget_range, first, last));
+        }
         boolean signedOut = cache.optBoolean("signedOut", section == null);
         int empty = signedOut ? R.string.widget_sign_in : section == null ? R.string.widget_load : R.string.widget_no_events;
+        if (CALENDAR.equals(kind) && !signedOut && !WorkWeekSource.isCurrent(section, Instant.now()))
+            empty = R.string.widget_work_unavailable;
         if (MAIL.equals(kind)) empty = section == null || !section.optBoolean("aquaMail") ? R.string.aquamail_connect
             : section.optBoolean("permissionRequired") ? R.string.aquamail_allow
             : section.optBoolean("unavailable") ? R.string.aquamail_unavailable : R.string.widget_no_mail;
         views.setTextViewText(R.id.home_widget_empty, context.getString(empty));
         long updated = section == null ? 0 : section.optLong("updatedAt");
         boolean stale = updated > 0 && System.currentTimeMillis() - updated > 60 * 60_000L;
-        views.setViewVisibility(R.id.home_widget_updated, stale ? View.VISIBLE : View.GONE);
-        if (stale) views.setTextViewText(R.id.home_widget_updated, context.getString(R.string.widget_updated,
-            DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault()).format(Instant.ofEpochMilli(updated))));
+        boolean failed = CALENDAR.equals(kind) && section != null && section.optBoolean("refreshFailed");
+        views.setViewVisibility(R.id.home_widget_updated, stale || failed ? View.VISIBLE : View.GONE);
+        if (stale || failed) views.setTextViewText(R.id.home_widget_updated, updated > 0
+            ? context.getString(failed ? R.string.widget_work_saved : R.string.widget_updated,
+                DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault())
+                    .withZone(CALENDAR.equals(kind) ? WorkWeekSource.ZONE : ZoneId.systemDefault())
+                    .format(Instant.ofEpochMilli(updated)))
+            : context.getString(R.string.widget_work_unavailable));
         Intent open = new Intent(context, MAIL.equals(kind) ? MailClientActivity.class : WidgetDetailActivity.class).putExtra("kind", kind)
             .setData(Uri.parse("pandemonium://widget/" + kind));
         views.setOnClickPendingIntent(R.id.home_widget_title, PendingIntent.getActivity(context, kind.hashCode(), open,
@@ -99,18 +113,7 @@ final class HomeWidgetViews {
             }
             return linked;
         }
-        JSONArray upcoming = new JSONArray();
-        for (int i = 0; i < Math.min(100, items.length()); i++) {
-            JSONObject item = items.optJSONObject(i);
-            if (item == null) continue;
-            try {
-                boolean future = item.optBoolean("allDay")
-                    ? LocalDate.parse(item.getString("endTime")).isAfter(now.atZone(zone(item)).toLocalDate())
-                    : Instant.parse(item.getString("endTime")).isAfter(now);
-                if (future) upcoming.put(item);
-            } catch (Exception ignored) { /* Invalid event dates do not become misleading agenda entries. */ }
-        }
-        return upcoming;
+        return WorkWeekSource.items(section, now);
     }
 
     static String sender(JSONObject item) {

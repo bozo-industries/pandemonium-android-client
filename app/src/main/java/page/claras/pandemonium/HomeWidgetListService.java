@@ -17,7 +17,7 @@ public final class HomeWidgetListService extends RemoteViewsService {
                 items = HomeWidgetViews.items(new HomeWidgetStore(getApplicationContext()).read(), kind);
             }
             @Override public void onDestroy() { items = new JSONArray(); }
-            @Override public int getCount() { return Math.min(100, items.length()); }
+            @Override public int getCount() { return items.length(); }
             @Override public RemoteViews getViewAt(int position) {
                 JSONObject item = items.optJSONObject(position);
                 return item == null ? null : HomeWidgetViews.row(getApplicationContext(), kind, item);

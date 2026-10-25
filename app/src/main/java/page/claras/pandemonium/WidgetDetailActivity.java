@@ -45,7 +45,7 @@ public final class WidgetDetailActivity extends Activity {
         Button back = new Button(this); back.setText(R.string.widget_back);
         back.setOnClickListener(view -> { if (selectedId == null) finish(); else { selectedId = null; show(); } });
         toolbar.addView(back, new LinearLayout.LayoutParams(dp(76), dp(52)));
-        TextView title = text(getString(R.string.calendar_widget_name), 20);
+        TextView title = text(getString(R.string.work_widget_title), 20);
         toolbar.addView(title, new LinearLayout.LayoutParams(0, dp(52), 1));
         Button refresh = new Button(this); refresh.setText(R.string.widget_refresh);
         refresh.setOnClickListener(view -> refresh());
@@ -66,7 +66,8 @@ public final class WidgetDetailActivity extends Activity {
         JSONArray items = HomeWidgetViews.items(cache, kind);
         if (items.length() == 0) {
             content.addView(text(getString(cache.optBoolean("signedOut", !cache.has(kind)) ? R.string.widget_sign_in
-                : R.string.widget_no_events), 16));
+                : WorkWeekSource.isCurrent(cache.optJSONObject(kind), java.time.Instant.now())
+                    ? R.string.widget_no_events : R.string.widget_work_unavailable), 16));
             Button open = new Button(this); open.setText(R.string.widget_open_app);
             open.setOnClickListener(view -> startActivity(new Intent(this, MainActivity.class)));
             content.addView(open);

@@ -4,12 +4,11 @@ import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
 import android.webkit.CookieManager;
-import java.time.LocalDate;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 final class HomeWidgetSync {
@@ -70,13 +69,8 @@ final class HomeWidgetSync {
             for (String kind : new String[]{HomeWidgetViews.CALENDAR}) {
                 // A detail screen can request a refresh even before a widget is installed.
                 try {
-                    JSONObject params = new JSONObject();
-                    LocalDate today = LocalDate.now();
-                    params.put("startDay", today.toString()).put("endDay", today.plusDays(31).toString());
-                    JSONObject reply = HomeWidgetApi.call(app, "calendar.widget.agenda", params);
-                    JSONArray items = reply.optJSONArray("events");
-                    if (items == null) continue;
-                    JSONObject section = new JSONObject().put("items", items).put("updatedAt", System.currentTimeMillis());
+                    JSONObject reply = HomeWidgetApi.call(app, WorkWeekSource.METHOD, new JSONObject());
+                    JSONObject section = WorkWeekSource.read(reply, Instant.now());
                     synchronized (LOCK) {
                         if (generation != requestGeneration) return;
                         cache.put(kind, section); store.save(cache);
@@ -87,7 +81,15 @@ final class HomeWidgetSync {
                     synchronized (LOCK) { if (generation == requestGeneration) store.save(cache); }
                     return;
                 }
-                catch (Exception ignored) { /* Preserve the other section and its last successful snapshot. */ }
+                catch (Exception ignored) {
+                    synchronized (LOCK) {
+                        if (generation != requestGeneration) return;
+                        JSONObject section = cache.optJSONObject(kind);
+                        if (section == null) section = new JSONObject();
+                        section.put("refreshFailed", true);
+                        cache.put(kind, section); store.save(cache);
+                    }
+                }
             }
             if (success) synchronized (LOCK) { nextAttempt = android.os.SystemClock.elapsedRealtime() + 15 * 60_000L; }
         } catch (Exception ignored) { /* Never log mailbox contents or credentials. */ }

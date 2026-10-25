@@ -19,7 +19,6 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -50,19 +49,19 @@ public class HomeWidgetTest {
         new HomeWidgetStore(context).save(fixture());
         assertEquals("Parcel ready", HomeWidgetViews.items(new HomeWidgetStore(context).read(), "mail").getJSONObject(0).getString("subject"));
         String disk = context.getSharedPreferences("home-widgets", 0).getString("encrypted", "");
-        assertFalse(disk.contains("Parcel ready")); assertFalse(disk.contains("Team meeting"));
+        assertFalse(disk.contains("Parcel ready")); assertFalse(disk.contains("Late Shift"));
         new HomeWidgetStore(context).clear(); assertEquals(0, new HomeWidgetStore(context).read().length());
     }
 
-    @Test public void filtersEndedEventsAcrossTheDstBoundaryWithoutMovingAllDayDates() throws Exception {
-        JSONArray items = new JSONArray()
-            .put(new JSONObject().put("eventId", "past").put("endTime", "2026-10-24T23:00:00Z"))
-            .put(new JSONObject().put("eventId", "holiday").put("allDay", true).put("startTime", "2026-10-25")
-                .put("endTime", "2026-10-26").put("timezone", "Europe/Berlin"))
-            .put(new JSONObject().put("eventId", "invalid").put("endTime", "bad"));
-        JSONObject cache = new JSONObject().put("calendar", new JSONObject().put("items", items));
-        assertEquals(1, HomeWidgetViews.items(cache, "calendar", Instant.parse("2026-10-25T23:00:00Z").minusSeconds(1)).length());
+    @Test public void rendersCompletedWorkShiftsUntilBerlinMondayAndRejectsLegacyAgenda() throws Exception {
+        Instant now = Instant.parse("2026-10-25T12:00:00Z");
+        JSONObject response = WorkWeekSourceTest.week(now);
+        WorkWeekSourceTest.add(response, 0, WorkWeekSourceTest.shift("monday", "2026-10-19T06:00:00Z", "2026-10-19T14:00:00Z"));
+        JSONObject cache = new JSONObject().put("calendar", WorkWeekSource.read(response, now));
+        assertEquals(1, HomeWidgetViews.items(cache, "calendar", Instant.parse("2026-10-25T22:59:59Z")).length());
         assertEquals(0, HomeWidgetViews.items(cache, "calendar", Instant.parse("2026-10-25T23:00:00Z")).length());
+        cache.put("calendar", new JSONObject().put("items", new JSONArray().put(new JSONObject().put("eventId", "personal"))));
+        assertEquals(0, HomeWidgetViews.items(cache, "calendar", now).length());
     }
 
     @Test public void rendersTranslucentPanelsAndRetainsReadableOpaqueQrPixels() throws Exception {
@@ -112,7 +111,7 @@ public class HomeWidgetTest {
             long deadline = android.os.SystemClock.elapsedRealtime() + 15_000;
             boolean[] ready = {false};
             while (!ready[0] && android.os.SystemClock.elapsedRealtime() < deadline) {
-                instrumentation.runOnMainSync(() -> ready[0] = contains(shown.getWindow().getDecorView(), "Parcel ready") && contains(shown.getWindow().getDecorView(), "Team meeting"));
+                instrumentation.runOnMainSync(() -> ready[0] = contains(shown.getWindow().getDecorView(), "Parcel ready") && contains(shown.getWindow().getDecorView(), "Late Shift"));
                 if (!ready[0]) Thread.sleep(100);
             }
             File output = new File(context.getExternalFilesDir(null), ready[0] ? "home-widgets-preview.png" : "home-widgets-preview-failed.png");
@@ -126,11 +125,30 @@ public class HomeWidgetTest {
                 View root = shown.getWindow().getDecorView();
                 View rewe = findId(root, R.id.loyalty_tile_rewe), action = findId(root, R.id.loyalty_tile_action), lidl = findId(root, R.id.loyalty_tile_lidl);
                 assertNotNull(rewe); assertSame(rewe.getParent(), lidl.getParent()); assertSame(rewe.getParent(), action.getParent());
+                View calendarHost = findWidgetHost(root, ids[1]); assertNotNull(calendarHost);
+                android.widget.ListView list = (android.widget.ListView) findId(calendarHost, R.id.home_widget_list);
+                assertEquals("All planned shifts must reach the actual collection adapter", 150, list.getAdapter().getCount());
+                list.setSelection(149);
             });
+            boolean[] lastVisible = {false};
+            long scrollDeadline = android.os.SystemClock.elapsedRealtime() + 10_000;
+            while (!lastVisible[0] && android.os.SystemClock.elapsedRealtime() < scrollDeadline) {
+                instrumentation.runOnMainSync(() -> lastVisible[0] = contains(shown.getWindow().getDecorView(), "Work shift 150"));
+                if (!lastVisible[0]) Thread.sleep(100);
+            }
+            assertTrue("The scrolling host must reach the final shift beyond the old 100-row cap", lastVisible[0]);
+            instrumentation.runOnMainSync(() -> ((android.widget.ListView) findId(findWidgetHost(shown.getWindow().getDecorView(), ids[1]), R.id.home_widget_list)).setSelection(0));
+            boolean[] firstVisible = {false};
+            long restoreDeadline = android.os.SystemClock.elapsedRealtime() + 10_000;
+            while (!firstVisible[0] && android.os.SystemClock.elapsedRealtime() < restoreDeadline) {
+                instrumentation.runOnMainSync(() -> firstVisible[0] = contains(shown.getWindow().getDecorView(), "Late Shift"));
+                if (!firstVisible[0]) Thread.sleep(100);
+            }
+            assertTrue(firstVisible[0]);
             Instrumentation.ActivityMonitor monitor = instrumentation.addMonitor(WidgetDetailActivity.class.getName(), null, false);
             try {
                 instrumentation.runOnMainSync(() -> {
-                    View row = findText(shown.getWindow().getDecorView(), "Team meeting");
+                    View row = findText(shown.getWindow().getDecorView(), "Late Shift");
                     assertNotNull(row);
                     while (!(row.getParent() instanceof android.widget.ListView)) row = (View) row.getParent();
                     android.widget.ListView list = (android.widget.ListView) row.getParent();
@@ -141,7 +159,7 @@ public class HomeWidgetTest {
                 assertEquals("fixture-event", detail.getIntent().getStringExtra("itemId"));
                 assertFalse(detail.getIntent().hasExtra("description"));
                 instrumentation.runOnMainSync(() -> {
-                    assertTrue(contains(detail.getWindow().getDecorView(), "Team meeting"));
+                    assertTrue(contains(detail.getWindow().getDecorView(), "Late Shift"));
                     detail.finish();
                 });
             } finally { instrumentation.removeMonitor(monitor); }
@@ -168,6 +186,14 @@ public class HomeWidgetTest {
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) if (contains(((ViewGroup) view).getChildAt(i), text)) return true;
         return false;
     }
+    private View findWidgetHost(View view, int id) {
+        if (view instanceof android.appwidget.AppWidgetHostView
+                && ((android.appwidget.AppWidgetHostView) view).getAppWidgetId() == id) return view;
+        if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) {
+            View found = findWidgetHost(((ViewGroup) view).getChildAt(i), id); if (found != null) return found;
+        }
+        return null;
+    }
     private View findId(View view, int id) {
         if (view.getId() == id) return view;
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++) {
@@ -192,12 +218,15 @@ public class HomeWidgetTest {
                 .put("date", Instant.now().toString()).put("snippet", "Your reservation is confirmed.")
                 .put("from", new JSONArray().put(new JSONObject().put("name", "Travel").put("address", "travel@example.test")))))
             .put("updatedAt", System.currentTimeMillis());
-        JSONObject event = new JSONObject().put("eventId", "fixture-event").put("title", "Team meeting")
-            .put("startTime", Instant.now().plusSeconds(3600).toString()).put("endTime", Instant.now().plusSeconds(7200).toString())
-            .put("timezone", "Europe/Berlin").put("location", "Office");
-        JSONObject holiday = new JSONObject().put("eventId", "fixture-holiday").put("title", "Holiday").put("allDay", true)
-            .put("startTime", LocalDate.now().plusDays(1).toString()).put("endTime", LocalDate.now().plusDays(2).toString()).put("timezone", "Europe/Berlin");
-        return new JSONObject().put("signedOut", false).put("mail", mail).put("calendar", new JSONObject()
-            .put("items", new JSONArray().put(event).put(holiday)).put("updatedAt", System.currentTimeMillis()));
+        Instant now = Instant.now();
+        JSONObject week = WorkWeekSourceTest.week(now);
+        Instant monday = WorkWeekSource.weekStart(now).atTime(8, 0).atZone(WorkWeekSource.ZONE).toInstant();
+        for (int i = 0; i < 150; i++) {
+            Instant starts = monday.plusSeconds(i * 60);
+            JSONObject shift = WorkWeekSourceTest.shift(i == 0 ? "fixture-event" : "fixture-work-" + i,
+                starts.toString(), starts.plusSeconds(60).toString()).put("title", i == 0 ? "Late Shift" : "Work shift " + (i + 1));
+            WorkWeekSourceTest.add(week, 0, shift);
+        }
+        return new JSONObject().put("signedOut", false).put("mail", mail).put("calendar", WorkWeekSource.read(week, now));
     }
 }

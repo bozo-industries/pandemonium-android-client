@@ -2,11 +2,15 @@
     <string name="mail_widget_name">Mail</string>
     <string name="mail_widget_description">Latest mail from Pandemonium</string>
     <string name="calendar_widget_name">Calendar</string>
-    <string name="calendar_widget_description">Upcoming events from Pandemonium</string>
+    <string name="calendar_widget_description">All Work shifts for this week</string>
+    <string name="work_widget_title">Work this week</string>
+    <string name="work_widget_range">Work · %1$s–%2$s</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_sign_in">Open Pandemonium to sign in</string>
     <string name="widget_no_mail">No mail</string>
-    <string name="widget_no_events">No upcoming events</string>
+    <string name="widget_no_events">No shifts this week</string>
+    <string name="widget_work_unavailable">Work schedule unavailable</string>
+    <string name="widget_work_saved">Work unavailable. Saved %1$s</string>
     <string name="widget_load">Tap refresh to load</string>
     <string name="widget_all_day">All day</string>
     <string name="widget_no_subject">No subject</string>
