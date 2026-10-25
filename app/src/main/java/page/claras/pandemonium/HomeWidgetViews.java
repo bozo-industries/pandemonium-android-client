@@ -52,13 +52,13 @@ final class HomeWidgetViews {
                     .withZone(CALENDAR.equals(kind) ? WorkWeekSource.ZONE : ZoneId.systemDefault())
                     .format(Instant.ofEpochMilli(updated)))
             : context.getString(R.string.widget_work_unavailable));
-        Intent open = new Intent(context, MAIL.equals(kind) ? MailClientActivity.class : WidgetDetailActivity.class).putExtra("kind", kind)
+        Intent open = (MAIL.equals(kind) ? new Intent(context, MailClientActivity.class) : MainActivity.workIntent(context))
             .setData(Uri.parse("pandemonium://widget/" + kind));
         views.setOnClickPendingIntent(R.id.home_widget_title, PendingIntent.getActivity(context, kind.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         views.setOnClickPendingIntent(R.id.home_widget_empty, PendingIntent.getActivity(context, 900,
-            MAIL.equals(kind) ? open : new Intent(context, MainActivity.class), PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
-        // Collection fill-in intents carry only an opaque item id. The activity is explicit and non-exported.
+            open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+        // Collection fill-in intents carry only an opaque item id; the destination activity is explicit.
         views.setPendingIntentTemplate(R.id.home_widget_list, PendingIntent.getActivity(context, kind.hashCode() + 1, open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE));
         Intent refresh = new Intent(context, MAIL.equals(kind) ? MailWidgetProvider.class : CalendarWidgetProvider.class)

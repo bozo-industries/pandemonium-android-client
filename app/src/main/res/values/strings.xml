@@ -21,9 +21,6 @@
     <string name="widget_updated">Updated %1$s</string>
     <string name="widget_loading">Loading</string>
     <string name="widget_unavailable">Unable to load. Tap refresh to retry.</string>
-    <string name="widget_missing_item">This item is no longer available.</string>
-    <string name="widget_open_app">Open Pandemonium</string>
-    <string name="widget_back">Back</string>
     <string name="app_name">Pandemonium</string>
     <string name="take_photo">Take photo</string>
     <string name="choose_file">Choose file</string>

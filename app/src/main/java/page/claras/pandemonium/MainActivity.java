@@ -33,6 +33,8 @@ import android.widget.Toast;
 /** A single-origin browser shell. Authentication stays in the website's HttpOnly cookies. */
 public final class MainActivity extends Activity {
     private static final String HOME = "https://claras.page/ui";
+    private static final String OPEN_WORK = "page.claras.pandemonium.OPEN_WORK";
+    private boolean pendingWork;
     private WebView web;
     private Button retry;
     private ValueCallback<Uri[]> fileCallback;
@@ -50,6 +52,7 @@ public final class MainActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        pendingWork = state == null ? OPEN_WORK.equals(getIntent().getAction()) : state.getBoolean("pendingWork");
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(21, 16, 29));
@@ -152,10 +155,34 @@ public final class MainActivity extends Activity {
             String lastPath = getPreferences(MODE_PRIVATE).getString("lastPath", "/ui");
             String initialUrl = SessionManager.cookieValue(cookie, SessionManager.SESSION) != null && lastPath.startsWith("/") && !lastPath.startsWith("//")
                 ? SessionManager.ORIGIN + lastPath : HOME;
-            if (state == null || web.restoreState(state) == null) web.loadUrl(initialUrl);
+            if (pendingWork) openPendingWork();
+            else if (state == null || web.restoreState(state) == null) web.loadUrl(initialUrl);
             loaded = true;
             if (result == SessionManager.Result.UNAVAILABLE) showSessionError();
         });
+    }
+
+    static Intent workIntent(android.content.Context context) {
+        return new Intent(context, MainActivity.class).setAction(OPEN_WORK)
+            .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+    }
+
+    @Override protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        if (!OPEN_WORK.equals(intent.getAction())) return;
+        pendingWork = true;
+        if (loaded) SessionManager.get(this).sync(result -> {
+            if (isDestroyed()) return;
+            openPendingWork();
+            if (result == SessionManager.Result.UNAVAILABLE) showSessionError();
+        });
+    }
+
+    private void openPendingWork() {
+        if (!pendingWork) return;
+        pendingWork = false;
+        web.loadUrl(SessionManager.ORIGIN + "/work/");
     }
 
     static boolean internal(Uri uri) {
@@ -259,7 +286,7 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed() { navigateBack(); }
     @Override protected void onPause() { handler.removeCallbacks(sessionTick); CookieManager.getInstance().flush(); syncSession(); web.onPause(); super.onPause(); }
     @Override protected void onResume() { super.onResume(); if (web != null) web.onResume(); handler.post(sessionTick); }
-    @Override protected void onSaveInstanceState(Bundle state) { web.saveState(state); super.onSaveInstanceState(state); }
+    @Override protected void onSaveInstanceState(Bundle state) { state.putBoolean("pendingWork", pendingWork); web.saveState(state); super.onSaveInstanceState(state); }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
         if (request == 1 && fileCallback != null) {

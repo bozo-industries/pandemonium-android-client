@@ -29,7 +29,7 @@ mail inbox or message reader. The header opens Aqua Mail normally; a missing
 message never falls back to a different email or the inbox. Calendar shows every
 planned Work shift in the current Monday–Sunday week in Europe/Berlin, including
 completed shifts earlier in the week. The header labels the cached week, and taps
-open native shift details. Approved shift plans and confirmed nonworking days
+open the existing Work page inside Pandemonium. Approved shift plans and confirmed nonworking days
 follow Work's existing schedule rules.
 
 Calendar refresh uses the existing native Android session and the read-only
@@ -55,7 +55,7 @@ snapshots are encrypted with Android Keystore, remain readable offline, show the
 age when stale, and are cleared when the session is revoked or signed out.
 
 The server must provide the owner-only `work.schedule.currentWeek` RPC. Mail and calendar are
-read-only; the widget detail views do not send mail or edit events.
+read-only; widget taps do not send mail or edit shifts.
 
 ## Loyalty QR widget
 
