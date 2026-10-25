@@ -158,14 +158,14 @@ public class HomeWidgetTest {
                 assertNotNull("A real widget row should open the Pandemonium app", detail);
                 assertEquals("fixture-event", detail.getIntent().getStringExtra("itemId"));
                 assertFalse(detail.getIntent().hasExtra("description"));
-                WorkNavigationTest.assertUrl(instrumentation, detail, "https://claras.page/work/");
+                WorkNavigationTest.assertRequestedUrl(instrumentation, detail, "https://claras.page/work/");
                 instrumentation.runOnMainSync(detail::onBackPressed);
                 assertTrue("Back from a cold Work page closes the shell", detail.isFinishing());
                 monitor = instrumentation.addMonitor(MainActivity.class.getName(), null, false);
                 instrumentation.runOnMainSync(() -> findId(findWidgetHost(shown.getWindow().getDecorView(), ids[1]), R.id.home_widget_title).performClick());
                 Activity header = instrumentation.waitForMonitorWithTimeout(monitor, 5000);
                 assertNotNull("The real Work header should open the app", header);
-                WorkNavigationTest.assertUrl(instrumentation, header, "https://claras.page/work/");
+                WorkNavigationTest.assertRequestedUrl(instrumentation, header, "https://claras.page/work/");
                 instrumentation.runOnMainSync(header::finish);
             } finally { instrumentation.removeMonitor(monitor); }
         } finally {

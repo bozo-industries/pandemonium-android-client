@@ -81,6 +81,14 @@ public class WorkNavigationTest {
     }
 
     static void assertUrl(Instrumentation instrumentation, Activity activity, String expected) throws Exception {
+        waitForUrl(instrumentation, activity, expected, true);
+    }
+
+    static void assertRequestedUrl(Instrumentation instrumentation, Activity activity, String expected) throws Exception {
+        waitForUrl(instrumentation, activity, expected, false);
+    }
+
+    private static void waitForUrl(Instrumentation instrumentation, Activity activity, String expected, boolean requireCommit) throws Exception {
         WebView web = web(instrumentation, activity);
         AtomicReference<String> actual = new AtomicReference<>();
         AtomicReference<Boolean> committed = new AtomicReference<>(false);
@@ -88,7 +96,8 @@ public class WorkNavigationTest {
         do {
             instrumentation.runOnMainSync(() -> {
                 actual.set(web.getUrl());
-                committed.set(web.getProgress() == 100 && web.copyBackForwardList().getCurrentItem() != null);
+                android.webkit.WebHistoryItem current = web.copyBackForwardList().getCurrentItem();
+                committed.set(!requireCommit || (web.getProgress() == 100 && current != null && expected.equals(current.getUrl())));
             });
             if (expected.equals(actual.get()) && committed.get()) {
                 instrumentation.waitForIdleSync();
@@ -96,7 +105,7 @@ public class WorkNavigationTest {
             }
             Thread.sleep(50);
         } while (android.os.SystemClock.elapsedRealtime() < deadline);
-        fail("Navigation did not commit " + expected + "; observed " + actual.get());
+        fail("Navigation did not " + (requireCommit ? "commit " : "request ") + expected + "; observed " + actual.get());
     }
 
     private static WebView web(Instrumentation instrumentation, Activity activity) {
