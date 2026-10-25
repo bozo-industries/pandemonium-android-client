@@ -36,18 +36,19 @@ public class HomeWidgetTest {
     @Before public void before() throws Exception {
         instrumentation = InstrumentationRegistry.getInstrumentation(); context = instrumentation.getTargetContext();
         new SecureSessionStore(context).clear(); new HomeWidgetStore(context).clear();
+        new MailWidgetStore(context).clear();
         CountDownLatch cleared = new CountDownLatch(1);
         instrumentation.runOnMainSync(() -> CookieManager.getInstance().removeAllCookies(ignored -> cleared.countDown()));
         assertTrue(cleared.await(10, TimeUnit.SECONDS));
         HomeWidgetJob.cancel(context);
     }
     @After public void after() throws Exception {
-        new HomeWidgetStore(context).clear(); new LoyaltyCodeStore(context).clear(); HomeWidgetJob.cancel(context);
+        new HomeWidgetStore(context).clear(); new MailWidgetStore(context).clear(); new LoyaltyCodeStore(context).clear(); HomeWidgetJob.cancel(context);
     }
 
     @Test public void encryptsPersonalSummariesAndKeepsThemAcrossStoreRecreation() throws Exception {
         new HomeWidgetStore(context).save(fixture());
-        assertEquals("Parcel ready", HomeWidgetViews.items(new HomeWidgetStore(context).read(), "mail").getJSONObject(0).getString("subject"));
+        assertEquals("Late Shift", HomeWidgetViews.items(new HomeWidgetStore(context).read(), "calendar").getJSONObject(0).getString("title"));
         String disk = context.getSharedPreferences("home-widgets", 0).getString("encrypted", "");
         assertFalse(disk.contains("Parcel ready")); assertFalse(disk.contains("Late Shift"));
         new HomeWidgetStore(context).clear(); assertEquals(0, new HomeWidgetStore(context).read().length());
@@ -102,6 +103,10 @@ public class HomeWidgetTest {
             while (HomeWidgetSync.isRunning() && android.os.SystemClock.elapsedRealtime() < idle) Thread.sleep(100);
             assertFalse("Initial signed-out refresh should finish", HomeWidgetSync.isRunning());
             new HomeWidgetStore(context).save(fixture());
+            Instant mailNow = Instant.now();
+            JSONArray mailRows = MailFixtures.messages(205, mailNow);
+            mailRows.getJSONObject(0).put("subject", "Parcel ready");
+            MailFixtures.save(new MailWidgetStore(context), mailRows, mailNow);
             Map<String, String> codes = new HashMap<>(); codes.put("rewe", "R123456789"); codes.put("lidl-plus", "L123456789"); codes.put("action", "A123456789");
             new LoyaltyCodeStore(context).replace(codes);
             HomeWidgetProvider.updateAll(context); LoyaltyWidgetProvider.updateAll(context);
@@ -119,12 +124,16 @@ public class HomeWidgetTest {
             try (FileOutputStream out = new FileOutputStream(output)) { assertTrue(screenshot.compress(Bitmap.CompressFormat.PNG, 100, out)); }
             JSONObject retained = new HomeWidgetStore(context).read();
             assertTrue("Actual collection adapters should render cached mail and agenda; retained mail="
-                + HomeWidgetViews.items(retained, "mail").length() + ", agenda=" + HomeWidgetViews.items(retained, "calendar").length(), ready[0]);
+                + new MailWidgetStore(context).metadata().optInt("count") + ", agenda=" + HomeWidgetViews.items(retained, "calendar").length(), ready[0]);
             instrumentation.runOnMainSync(() -> {
                 // AppWidgetHostView is a root namespace, so walk its children explicitly.
                 View root = shown.getWindow().getDecorView();
                 View rewe = findId(root, R.id.loyalty_tile_rewe), action = findId(root, R.id.loyalty_tile_action), lidl = findId(root, R.id.loyalty_tile_lidl);
                 assertNotNull(rewe); assertSame(rewe.getParent(), lidl.getParent()); assertSame(rewe.getParent(), action.getParent());
+                View mailHost = findWidgetHost(root, ids[0]); assertNotNull(mailHost);
+                android.widget.ListView mailList = (android.widget.ListView) findId(mailHost, R.id.home_widget_list);
+                assertEquals("Read and unread mail must reach the actual collection adapter beyond100", 205, mailList.getAdapter().getCount());
+                mailList.setSelection(204);
                 View calendarHost = findWidgetHost(root, ids[1]); assertNotNull(calendarHost);
                 android.widget.ListView list = (android.widget.ListView) findId(calendarHost, R.id.home_widget_list);
                 assertEquals("All planned shifts must reach the actual collection adapter", 150, list.getAdapter().getCount());
@@ -137,6 +146,13 @@ public class HomeWidgetTest {
                 if (!lastVisible[0]) Thread.sleep(100);
             }
             assertTrue("The scrolling host must reach the final shift beyond the old 100-row cap", lastVisible[0]);
+            boolean[] lastMailVisible = {false};
+            long mailScrollDeadline = android.os.SystemClock.elapsedRealtime() + 10_000;
+            while (!lastMailVisible[0] && android.os.SystemClock.elapsedRealtime() < mailScrollDeadline) {
+                instrumentation.runOnMainSync(() -> lastMailVisible[0] = contains(shown.getWindow().getDecorView(), "Mail 205"));
+                if (!lastMailVisible[0]) Thread.sleep(100);
+            }
+            assertTrue("Mail must scroll to its final row beyond the old100 limit", lastMailVisible[0]);
             instrumentation.runOnMainSync(() -> ((android.widget.ListView) findId(findWidgetHost(shown.getWindow().getDecorView(), ids[1]), R.id.home_widget_list)).setSelection(0));
             boolean[] firstVisible = {false};
             long restoreDeadline = android.os.SystemClock.elapsedRealtime() + 10_000;
@@ -214,15 +230,6 @@ public class HomeWidgetTest {
         return null;
     }
     private JSONObject fixture() throws Exception {
-        JSONObject mail = new JSONObject().put("aquaMail", true).put("items", new JSONArray().put(new JSONObject().put("messageId", "fixture-mail-1")
-            .put("viewUri", "content://org.kman.AquaMail.datax.messages/fixture/1")
-            .put("subject", "Parcel ready").put("date", Instant.now().toString()).put("snippet", "Your parcel is ready for collection.")
-            .put("from", new JSONArray().put(new JSONObject().put("name", "Delivery").put("address", "delivery@example.test"))))
-            .put(new JSONObject().put("messageId", "fixture-mail-2").put("subject", "Your booking")
-                .put("viewUri", "content://org.kman.AquaMail.datax.messages/fixture/2")
-                .put("date", Instant.now().toString()).put("snippet", "Your reservation is confirmed.")
-                .put("from", new JSONArray().put(new JSONObject().put("name", "Travel").put("address", "travel@example.test")))))
-            .put("updatedAt", System.currentTimeMillis());
         Instant now = Instant.now();
         JSONObject week = WorkWeekSourceTest.week(now);
         Instant monday = WorkWeekSource.weekStart(now).atTime(8, 0).atZone(WorkWeekSource.ZONE).toInstant();
@@ -232,6 +239,6 @@ public class HomeWidgetTest {
                 starts.toString(), starts.plusSeconds(60).toString()).put("title", i == 0 ? "Late Shift" : "Work shift " + (i + 1));
             WorkWeekSourceTest.add(week, 0, shift);
         }
-        return new JSONObject().put("signedOut", false).put("mail", mail).put("calendar", WorkWeekSource.read(week, now));
+        return new JSONObject().put("signedOut", false).put("calendar", WorkWeekSource.read(week, now));
     }
 }

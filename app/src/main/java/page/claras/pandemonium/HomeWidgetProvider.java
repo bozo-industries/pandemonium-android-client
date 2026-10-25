@@ -31,6 +31,12 @@ public abstract class HomeWidgetProvider extends AppWidgetProvider {
     }
     static void updateAll(Context context) {
         JSONObject cache = new HomeWidgetStore(context).read();
+        try {
+            JSONObject mail = new MailWidgetStore(context).metadata();
+            if (!cache.has("signedOut")) cache.put("signedOut", !mail.has("snapshot") && cache.optJSONObject(HomeWidgetViews.CALENDAR) == null);
+            cache.put(HomeWidgetViews.MAIL, mail);
+        }
+        catch (org.json.JSONException impossible) { throw new IllegalStateException(impossible); }
         update(context, MailWidgetProvider.class, HomeWidgetViews.MAIL, cache);
         update(context, CalendarWidgetProvider.class, HomeWidgetViews.CALENDAR, cache);
     }

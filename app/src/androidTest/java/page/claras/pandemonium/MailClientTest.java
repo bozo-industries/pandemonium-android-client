@@ -18,7 +18,7 @@ public class MailClientTest {
     private final Instrumentation instrumentation = InstrumentationRegistry.getInstrumentation();
     private final Context context = instrumentation.getTargetContext();
 
-    @After public void clear() throws Exception { new HomeWidgetStore(context).clear(); }
+    @After public void clear() throws Exception { new HomeWidgetStore(context).clear(); new MailWidgetStore(context).clear(); }
 
     @Test public void onlyUsesViewingLinksFromTheLocalMailSection() throws Exception {
         JSONObject cache = fixture("content://org.kman.AquaMail.datax.messages/fixture/42");
@@ -55,6 +55,44 @@ public class MailClientTest {
             assertEquals("content://org.kman.AquaMail.datax.messages/fixture/42", observed.get().getDataString());
             assertNull("No credentials or message contents in the handoff", observed.get().getExtras());
         } finally { instrumentation.removeMonitor(monitor); }
+    }
+
+    @Test public void backendMessageTapFinishesWithoutAnInboxFallbackOrUnverifiedReader() throws Exception {
+        java.time.Instant now = java.time.Instant.now();
+        MailWidgetStore pages = new MailWidgetStore(context);
+        MailFixtures.save(pages, MailFixtures.messages(2, now), now);
+        String ref;
+        try (MailWidgetStore.Reader reader = pages.reader(now)) { ref = reader.row(0).getString("messageRef"); }
+        new HomeWidgetStore(context).save(new JSONObject().put("signedOut", false));
+        assertNull(MailClientActivity.selectedIntent(new HomeWidgetStore(context).read(), ref));
+        java.util.concurrent.atomic.AtomicInteger external = new java.util.concurrent.atomic.AtomicInteger();
+        CountDownLatch created = new CountDownLatch(1);
+        AtomicReference<Activity> router = new AtomicReference<>();
+        androidx.test.runner.lifecycle.ActivityLifecycleCallback lifecycle = (activity, stage) -> {
+            if (activity instanceof MailClientActivity && stage == androidx.test.runner.lifecycle.Stage.CREATED) {
+                router.set(activity); created.countDown();
+            }
+        };
+        Instrumentation.ActivityMonitor monitor = new Instrumentation.ActivityMonitor() {
+            @Override public Instrumentation.ActivityResult onStartActivity(Intent intent) {
+                if (!MailClientActivity.PACKAGE.equals(intent.getPackage())) return null;
+                external.incrementAndGet();
+                return new Instrumentation.ActivityResult(Activity.RESULT_OK, null);
+            }
+        };
+        instrumentation.runOnMainSync(() -> androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().addLifecycleCallback(lifecycle));
+        instrumentation.addMonitor(monitor);
+        try {
+            instrumentation.runOnMainSync(() -> context.startActivity(new Intent(context, MailClientActivity.class)
+                .putExtra("itemId", ref).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)));
+            assertTrue(created.await(5, TimeUnit.SECONDS));
+            instrumentation.waitForIdleSync();
+            instrumentation.runOnMainSync(() -> assertTrue(router.get().isFinishing()));
+            assertEquals(0, external.get());
+        } finally {
+            instrumentation.removeMonitor(monitor);
+            instrumentation.runOnMainSync(() -> androidx.test.runner.lifecycle.ActivityLifecycleMonitorRegistry.getInstance().removeLifecycleCallback(lifecycle));
+        }
     }
 
     private JSONObject fixture(String uri) throws Exception {

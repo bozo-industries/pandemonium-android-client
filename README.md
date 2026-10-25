@@ -22,11 +22,26 @@ The server must provide `POST /api/android/enroll` and `POST /api/android/refres
 ## Mail and calendar widgets
 
 Mail and Calendar are native, resizable, scrolling home-screen widgets with a
-translucent background shared with the loyalty widget. Mail shows Aqua Mail's
-local unread messages and opens the selected email in Aqua Mail using the exact
-`view_uri` supplied by its read-only integration. Pandemonium does not render a
-mail inbox or message reader. The header opens Aqua Mail normally; a missing
-message never falls back to a different email or the inbox. Calendar shows every
+translucent background shared with the loyalty widget. Mail shows dated read and
+unread messages in the last seven elapsed days across Email's enabled connections.
+It follows every page of `email.widget.mail` and deduplicates only identical
+source-qualified message references; provider deduplication remains Email-owned.
+The widget shows available-source coverage, the snapshot time, and the oldest
+known source sync. Unknown freshness, failed sources and incomplete updates are
+explicit. The header opens Aqua Mail normally. Message taps currently report
+opening unavailable because Email supplies no verified Aqua Mail locator;
+Pandemonium does not add a message reader or guess message links.
+
+Mail snapshots use separate Android-Keystore-encrypted pages and an atomic
+snapshot index. A failed page or expired cursor retains the previous snapshot
+with its failure state. A completed snapshot with unavailable sources remains
+visibly incomplete. Aged messages leave the displayed seven-day window. There
+is no 100-message display limit or combined Work-cache size limit on Mail;
+individual response/cache pages are bounded at 1 MiB. The server's 15-minute
+snapshot lifetime and 50,000-message safety refusal produce explicit failed
+updates, without claiming a truncated result complete.
+
+Calendar shows every
 planned Work shift in the current Monday–Sunday week in Europe/Berlin, including
 completed shifts earlier in the week. The header labels the cached week, and taps
 open the existing Work page inside Pandemonium. Approved shift plans and confirmed nonworking days
@@ -38,17 +53,14 @@ cache; refreshing a widget does not force a new Calendar-provider read within
 that cache's local day. A missing or failed Work API is shown as unavailable,
 with the last successful current-week snapshot retained and dated. Older personal
 agenda caches are not displayed as Work shifts. There is no shift-count cap;
-responses over 1 MiB or a combined encrypted cache over 512,000 characters fail
+responses over 1 MiB or its encrypted cache over 512,000 characters fail
 explicitly rather than silently truncating.
 
-Mail requires Aqua Mail
-(`org.kman.AquaMail`) and its `org.kman.AquaMail.datax.READ_MESSAGES` permission;
-tap the widget header to grant access if the installed version requests it at runtime.
-Only message summaries and viewing links are read; no bodies, account credentials,
-message actions or notification access are requested. This uses Aqua Mail's
-[published integration API](https://forum.aqua-mail.com/index.php?topic=4476.0),
-which exposes unread messages. No provider passwords or tokens are configured in
-the widgets. Android schedules
+Mail requires the existing native Android session and the owner-only
+`email.widget.mail` RPC. Its summaries do not read bodies or change read state,
+mailbox flags, accounts or credentials. Aqua Mail (`org.kman.AquaMail`) is needed
+only to open that app from the header. No provider passwords or tokens are
+configured in the widgets. Android schedules
 background refresh around every 30 minutes and may defer it while offline or in
 battery-saving modes. Opening the app also refreshes installed widgets. Last good
 snapshots are encrypted with Android Keystore, remain readable offline, show their

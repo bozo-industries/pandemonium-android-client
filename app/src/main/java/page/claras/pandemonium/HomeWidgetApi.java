@@ -12,14 +12,19 @@ import org.json.JSONObject;
 
 final class HomeWidgetApi {
     static final class Unauthorized extends java.io.IOException { }
+    interface ConnectionFactory { HttpURLConnection open(URL url) throws java.io.IOException; }
 
     static JSONObject call(Context context, String method, JSONObject params) throws Exception {
-        if (!method.equals("email.widget.inbox") && !method.equals("email.widget.message")
+        return call(context, method, params, url -> (HttpURLConnection) url.openConnection());
+    }
+
+    static JSONObject call(Context context, String method, JSONObject params, ConnectionFactory connections) throws Exception {
+        if (!method.equals(MailWindowSource.METHOD)
                 && !method.equals("calendar.widget.agenda") && !method.equals(WorkWeekSource.METHOD))
             throw new IllegalArgumentException("Unsupported widget read");
         String cookie = CookieManager.getInstance().getCookie(SessionManager.ORIGIN);
         if (SessionManager.cookieValue(cookie, SessionManager.SESSION) == null) throw new Unauthorized();
-        HttpURLConnection connection = (HttpURLConnection) new URL(SessionManager.ORIGIN + "/api/rpc").openConnection();
+        HttpURLConnection connection = connections.open(new URL(SessionManager.ORIGIN + "/api/rpc"));
         try {
             connection.setInstanceFollowRedirects(false);
             connection.setConnectTimeout(5_000);
@@ -51,7 +56,15 @@ final class HomeWidgetApi {
                 }
                 result = new JSONObject(new String(out.toByteArray(), StandardCharsets.UTF_8));
             }
-            if (result.has("error")) throw new java.io.IOException("Widget data unavailable");
+            if (result.has("error")) {
+                JSONObject error = result.optJSONObject("error");
+                String message = error == null ? "" : error.optString("message");
+                if (method.equals(MailWindowSource.METHOD)) {
+                    if (message.equals("email.widget.mail cursor is invalid or expired")) throw new MailWindowSource.CursorExpired();
+                    if (message.equals("email.widget.mail pagination exceeds the explicit 50000-message safety bound")) throw new MailWindowSource.LimitExceeded();
+                }
+                throw new java.io.IOException("Widget data unavailable");
+            }
             JSONObject value = result.optJSONObject("result");
             if (value == null) throw new java.io.IOException("Missing widget result");
             return value;

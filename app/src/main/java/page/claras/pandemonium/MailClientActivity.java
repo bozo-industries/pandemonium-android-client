@@ -16,10 +16,6 @@ public final class MailClientActivity extends Activity {
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         String id = getIntent().getStringExtra("itemId");
-        if (id == null && AquaMailSource.needsPermission(this)) {
-            requestPermissions(new String[]{AquaMailSource.READ_PERMISSION}, 1);
-            return;
-        }
         openMail(id);
     }
 
@@ -33,14 +29,6 @@ public final class MailClientActivity extends Activity {
         }
         if (!opened) Toast.makeText(this, id == null ? R.string.aquamail_unavailable : R.string.aquamail_message_unavailable, Toast.LENGTH_SHORT).show();
         finish();
-    }
-
-    @Override public void onRequestPermissionsResult(int request, String[] permissions, int[] results) {
-        super.onRequestPermissionsResult(request, permissions, results);
-        if (request == 1) {
-            HomeWidgetJob.schedule(this, true);
-            openMail(null);
-        }
     }
 
     static Intent selectedIntent(JSONObject cache, String id) {

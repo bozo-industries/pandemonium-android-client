@@ -39,25 +39,26 @@ final class HomeWidgetSync {
         }));
     }
 
-    private static void fetch(Context app, long requestGeneration, boolean calendarAvailable) {
+    private static void fetch(Context app, long requestGeneration, boolean serverAvailable) {
         try {
             HomeWidgetStore store = new HomeWidgetStore(app);
             JSONObject cache = store.read();
-            if (HomeWidgetProvider.ids(app, MailWidgetProvider.class).length > 0) {
-                JSONObject mail;
-                try { mail = AquaMailSource.read(app); }
-                catch (Exception unavailable) { mail = AquaMailSource.unavailable(false); }
-                cache.put(HomeWidgetViews.MAIL, mail);
+            MailWidgetStore mailStore = new MailWidgetStore(app);
+            boolean mailInstalled = HomeWidgetProvider.ids(app, MailWidgetProvider.class).length > 0;
+            if (!serverAvailable) {
+                synchronized (LOCK) {
+                    if (generation != requestGeneration) return;
+                    if (mailInstalled) mailStore.markFailure("unavailable");
+                    JSONObject work = cache.optJSONObject(HomeWidgetViews.CALENDAR);
+                    if (work != null) { work.put("refreshFailed", true); store.save(cache); }
+                }
+                return;
             }
-            synchronized (LOCK) {
-                if (generation != requestGeneration) return;
-                store.save(cache);
-            }
-            if (!calendarAvailable) return;
             String cookie = CookieManager.getInstance().getCookie(SessionManager.ORIGIN);
             if (SessionManager.cookieValue(cookie, SessionManager.SESSION) == null) {
                 cache.put("signedOut", true).remove(HomeWidgetViews.CALENDAR);
-                synchronized (LOCK) { if (generation == requestGeneration) store.save(cache); }
+                cache.remove(HomeWidgetViews.MAIL);
+                synchronized (LOCK) { if (generation == requestGeneration) { mailStore.clear(); store.save(cache); } }
                 return;
             }
             cache.put("signedOut", false);
@@ -66,8 +67,29 @@ final class HomeWidgetSync {
                 store.save(cache);
             }
             boolean success = false;
+            if (mailInstalled) {
+                try (MailWidgetStore.Writer writer = mailStore.writer()) {
+                    JSONObject mail = MailWindowSource.read(params -> HomeWidgetApi.call(app, MailWindowSource.METHOD, params), writer, Instant.now());
+                    synchronized (LOCK) {
+                        if (generation != requestGeneration) return;
+                        writer.commit(mail);
+                        success = true;
+                        cache.remove(HomeWidgetViews.MAIL);
+                        store.save(cache);
+                    }
+                } catch (HomeWidgetApi.Unauthorized unauthorized) {
+                    cache.put("signedOut", true).remove(HomeWidgetViews.CALENDAR);
+                    cache.remove(HomeWidgetViews.MAIL);
+                    synchronized (LOCK) { if (generation == requestGeneration) { mailStore.clear(); store.save(cache); } }
+                    return;
+                } catch (Exception error) {
+                    synchronized (LOCK) {
+                        if (generation != requestGeneration) return;
+                        mailStore.markFailure(mailFailure(error));
+                    }
+                }
+            }
             for (String kind : new String[]{HomeWidgetViews.CALENDAR}) {
-                // A detail screen can request a refresh even before a widget is installed.
                 try {
                     JSONObject reply = HomeWidgetApi.call(app, WorkWeekSource.METHOD, new JSONObject());
                     JSONObject section = WorkWeekSource.read(reply, Instant.now());
@@ -78,7 +100,8 @@ final class HomeWidgetSync {
                     success = true;
                 } catch (HomeWidgetApi.Unauthorized error) {
                     cache.put("signedOut", true).remove(HomeWidgetViews.CALENDAR);
-                    synchronized (LOCK) { if (generation == requestGeneration) store.save(cache); }
+                    cache.remove(HomeWidgetViews.MAIL);
+                    synchronized (LOCK) { if (generation == requestGeneration) { mailStore.clear(); store.save(cache); } }
                     return;
                 }
                 catch (Exception ignored) {
@@ -91,18 +114,31 @@ final class HomeWidgetSync {
                     }
                 }
             }
-            if (success) synchronized (LOCK) { nextAttempt = android.os.SystemClock.elapsedRealtime() + 15 * 60_000L; }
+            if (success) synchronized (LOCK) {
+                if (generation == requestGeneration) nextAttempt = android.os.SystemClock.elapsedRealtime() + 15 * 60_000L;
+            }
         } catch (Exception ignored) { /* Never log mailbox contents or credentials. */ }
         finally { finish(app); }
     }
 
     static void clear(Context context) throws Exception {
-        synchronized (LOCK) {
-            generation++;
-            nextAttempt = 0;
-            new HomeWidgetStore(context).clear();
+        try {
+            synchronized (LOCK) {
+                generation++;
+                nextAttempt = 0;
+                try { new MailWidgetStore(context).clear(); }
+                finally { new HomeWidgetStore(context).clear(); }
+            }
+        } finally {
+            HomeWidgetProvider.updateAll(context);
         }
-        HomeWidgetProvider.updateAll(context);
+    }
+
+    static String mailFailure(Exception error) {
+        if (error instanceof MailWindowSource.CursorExpired) return "expired";
+        if (error instanceof MailWindowSource.LimitExceeded) return "limit";
+        if (error instanceof MailWindowSource.InvalidSnapshot) return "incomplete";
+        return "unavailable";
     }
 
     private static void finish(Context context) {

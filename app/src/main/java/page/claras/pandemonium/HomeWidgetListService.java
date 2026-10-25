@@ -12,14 +12,32 @@ public final class HomeWidgetListService extends RemoteViewsService {
         final String kind = HomeWidgetViews.valid(value) ? value : HomeWidgetViews.MAIL;
         return new RemoteViewsFactory() {
             private JSONArray items = new JSONArray();
+            private MailWidgetStore.Reader mail;
             @Override public void onCreate() { onDataSetChanged(); }
-            @Override public void onDataSetChanged() {
+            @Override public synchronized void onDataSetChanged() {
+                if (mail != null) { mail.close(); mail = null; }
+                if (HomeWidgetViews.MAIL.equals(kind)) {
+                    try { mail = new MailWidgetStore(getApplicationContext()).reader(java.time.Instant.now()); }
+                    catch (Exception error) {
+                        try { new MailWidgetStore(getApplicationContext()).markFailure("cache_error"); } catch (Exception ignored) { }
+                    }
+                    return;
+                }
                 items = HomeWidgetViews.items(new HomeWidgetStore(getApplicationContext()).read(), kind);
             }
-            @Override public void onDestroy() { items = new JSONArray(); }
-            @Override public int getCount() { return items.length(); }
-            @Override public RemoteViews getViewAt(int position) {
-                JSONObject item = items.optJSONObject(position);
+            @Override public synchronized void onDestroy() { items = new JSONArray(); if (mail != null) { mail.close(); mail = null; } }
+            @Override public synchronized int getCount() { return HomeWidgetViews.MAIL.equals(kind) ? mail == null ? 0 : mail.count() : items.length(); }
+            @Override public synchronized RemoteViews getViewAt(int position) {
+                JSONObject item;
+                try { item = HomeWidgetViews.MAIL.equals(kind) ? mail == null ? null : mail.row(position) : items.optJSONObject(position); }
+                catch (Exception error) {
+                    try { new MailWidgetStore(getApplicationContext()).markFailure("cache_error"); } catch (Exception ignored) { }
+                    RemoteViews unavailable = new RemoteViews(getPackageName(), R.layout.widget_mail_row);
+                    unavailable.setTextViewText(R.id.home_widget_row_title, getString(R.string.mail_widget_cache_error));
+                    unavailable.setOnClickFillInIntent(R.id.home_widget_row, new Intent().putExtra("itemId", "unavailable"));
+                    unavailable.setContentDescription(R.id.home_widget_row, getString(R.string.mail_widget_cache_error));
+                    return unavailable;
+                }
                 return item == null ? null : HomeWidgetViews.row(getApplicationContext(), kind, item);
             }
             @Override public RemoteViews getLoadingView() { return null; }

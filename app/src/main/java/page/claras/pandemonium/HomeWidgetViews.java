@@ -21,7 +21,7 @@ final class HomeWidgetViews {
 
     static RemoteViews create(Context context, String kind, int id, JSONObject cache) {
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.widget_home_list);
-        views.setTextViewText(R.id.home_widget_title, context.getString(MAIL.equals(kind) ? R.string.mail_widget_name : R.string.work_widget_title));
+        views.setTextViewText(R.id.home_widget_title, context.getString(MAIL.equals(kind) ? R.string.mail_widget_title : R.string.work_widget_title));
         Intent adapter = new Intent(context, HomeWidgetListService.class).putExtra("kind", kind)
             .setData(Uri.parse("pandemonium://widget/" + kind + "/" + id));
         views.setRemoteAdapter(R.id.home_widget_list, adapter);
@@ -38,9 +38,9 @@ final class HomeWidgetViews {
         int empty = signedOut ? R.string.widget_sign_in : section == null ? R.string.widget_load : R.string.widget_no_events;
         if (CALENDAR.equals(kind) && !signedOut && !WorkWeekSource.isCurrent(section, Instant.now()))
             empty = R.string.widget_work_unavailable;
-        if (MAIL.equals(kind)) empty = section == null || !section.optBoolean("aquaMail") ? R.string.aquamail_connect
-            : section.optBoolean("permissionRequired") ? R.string.aquamail_allow
-            : section.optBoolean("unavailable") ? R.string.aquamail_unavailable : R.string.widget_no_mail;
+        if (MAIL.equals(kind)) empty = signedOut ? R.string.widget_sign_in
+            : section != null && section.has("refreshError") ? mailError(section.optString("refreshError"))
+            : section == null || !section.optBoolean("paginationComplete") ? R.string.widget_load : R.string.mail_widget_no_mail;
         views.setTextViewText(R.id.home_widget_empty, context.getString(empty));
         long updated = section == null ? 0 : section.optLong("updatedAt");
         boolean stale = updated > 0 && System.currentTimeMillis() - updated > 60 * 60_000L;
@@ -52,12 +52,18 @@ final class HomeWidgetViews {
                     .withZone(CALENDAR.equals(kind) ? WorkWeekSource.ZONE : ZoneId.systemDefault())
                     .format(Instant.ofEpochMilli(updated)))
             : context.getString(R.string.widget_work_unavailable));
+        if (MAIL.equals(kind)) {
+            views.setViewVisibility(R.id.home_widget_updated, signedOut ? View.GONE : View.VISIBLE);
+            views.setTextViewText(R.id.home_widget_updated, mailStatus(context, section));
+        }
         Intent open = (MAIL.equals(kind) ? new Intent(context, MailClientActivity.class) : MainActivity.workIntent(context))
             .setData(Uri.parse("pandemonium://widget/" + kind));
         views.setOnClickPendingIntent(R.id.home_widget_title, PendingIntent.getActivity(context, kind.hashCode(), open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         views.setOnClickPendingIntent(R.id.home_widget_empty, PendingIntent.getActivity(context, 900,
-            open, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
+            MAIL.equals(kind) && signedOut ? new Intent(context, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP) : open,
+            PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE));
         // Collection fill-in intents carry only an opaque item id; the destination activity is explicit.
         views.setPendingIntentTemplate(R.id.home_widget_list, PendingIntent.getActivity(context, kind.hashCode() + 1, open,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_MUTABLE));
@@ -77,7 +83,7 @@ final class HomeWidgetViews {
             heading = sender(item);
             date = mailDate(item.optString("date"));
             preview = heading + (item.optString("snippet").isEmpty() ? "" : " — " + item.optString("snippet"));
-            id = item.optString("messageId");
+            id = item.optString("messageRef", item.optString("messageId"));
         } else {
             title = item.optString("title");
             heading = eventDay(item);
@@ -87,11 +93,19 @@ final class HomeWidgetViews {
         }
         if (!MAIL.equals(kind)) views.setTextViewText(R.id.home_widget_row_heading, heading);
         views.setTextViewText(R.id.home_widget_row_date, date);
-        views.setTextViewText(R.id.home_widget_row_title, title);
+        CharSequence displayedTitle = title;
+        if (MAIL.equals(kind) && item.optBoolean("unread")) {
+            android.text.SpannableString unread = new android.text.SpannableString(title);
+            unread.setSpan(new android.text.style.StyleSpan(android.graphics.Typeface.BOLD), 0, title.length(), android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            displayedTitle = unread;
+        }
+        views.setTextViewText(R.id.home_widget_row_title, displayedTitle);
         views.setTextViewText(R.id.home_widget_row_preview, preview);
         views.setViewVisibility(R.id.home_widget_row_preview, preview.isEmpty() ? View.GONE : View.VISIBLE);
         views.setOnClickFillInIntent(R.id.home_widget_row, new Intent().putExtra("itemId", id));
-        views.setContentDescription(R.id.home_widget_row, heading + ". " + date + ". " + title);
+        String readState = MAIL.equals(kind) ? context.getString(item.has("unread")
+            ? item.optBoolean("unread") ? R.string.mail_widget_unread : R.string.mail_widget_read : R.string.mail_widget_read_unknown) + ". " : "";
+        views.setContentDescription(R.id.home_widget_row, readState + heading + ". " + date + ". " + title);
         return views;
     }
 
@@ -100,20 +114,44 @@ final class HomeWidgetViews {
     }
 
     static JSONArray items(JSONObject cache, String kind, Instant now) {
+        if (MAIL.equals(kind)) return new JSONArray();
         JSONObject section = cache.optJSONObject(kind);
         JSONArray items = section == null ? null : section.optJSONArray("items");
         if (items == null) return new JSONArray();
-        if (MAIL.equals(kind)) {
-            if (!section.optBoolean("aquaMail")) return new JSONArray();
-            JSONArray linked = new JSONArray();
-            for (int i = 0; i < Math.min(100, items.length()); i++) {
-                JSONObject item = items.optJSONObject(i);
-                if (item != null && !item.optString("messageId").isEmpty()
-                    && MailClientActivity.viewIntent(item.optString("viewUri")) != null) linked.put(item);
-            }
-            return linked;
-        }
         return WorkWeekSource.items(section, now);
+    }
+
+    private static int mailError(String code) {
+        if (code.equals("expired")) return R.string.mail_widget_expired;
+        if (code.equals("limit")) return R.string.mail_widget_limit;
+        if (code.equals("incomplete")) return R.string.mail_widget_incomplete;
+        if (code.equals("cache_error")) return R.string.mail_widget_cache_error;
+        return R.string.mail_widget_unavailable;
+    }
+
+    static String mailStatus(Context context, JSONObject section) {
+        if (section == null) return context.getString(R.string.widget_load);
+        JSONObject coverage = section.optJSONObject("coverage");
+        if (coverage == null) return context.getString(section.has("refreshError") ? mailError(section.optString("refreshError")) : R.string.widget_load);
+        JSONArray connections = coverage.optJSONArray("connections");
+        int total = connections == null ? 0 : connections.length(), available = 0;
+        for (int i = 0; i < total; i++) {
+            JSONObject connection = connections.optJSONObject(i);
+            if (connection != null && "available".equals(connection.optString("state"))) available++;
+        }
+        String result = context.getString(R.string.mail_widget_sources, available, total);
+        try {
+            String snapshot = DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault())
+                .format(Instant.parse(coverage.getString("to")));
+            result += " · " + context.getString(R.string.mail_widget_snapshot, snapshot);
+        } catch (Exception ignored) { }
+        Instant oldest = MailWindowSource.oldestSync(section);
+        result += "\n" + (oldest == null ? context.getString(R.string.mail_widget_freshness_unknown)
+            : context.getString(R.string.mail_widget_oldest_sync, DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault())
+                .withZone(ZoneId.systemDefault()).format(oldest)));
+        if (section.has("refreshError")) result = context.getString(mailError(section.optString("refreshError"))) + "\n" + result;
+        else if (!coverage.optBoolean("complete")) result = context.getString(R.string.mail_widget_partial) + "\n" + result;
+        return result;
     }
 
     static String sender(JSONObject item) {
