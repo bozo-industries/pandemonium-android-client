@@ -150,9 +150,14 @@ final class HomeWidgetViews {
     }
 
     static String eventTime(JSONObject item) {
-        try { return DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault())
-            .format(Instant.parse(item.optString("startTime")).atZone(zone(item))); }
-        catch (Exception ignored) { return ""; }
+        try {
+            java.time.ZonedDateTime start = Instant.parse(item.getString("startTime")).atZone(zone(item));
+            java.time.ZonedDateTime end = Instant.parse(item.getString("endTime")).atZone(zone(item));
+            DateTimeFormatter time = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault());
+            DateTimeFormatter endFormat = start.toLocalDate().equals(end.toLocalDate()) ? time
+                : DateTimeFormatter.ofPattern("EEE, d MMM HH:mm", Locale.getDefault());
+            return time.format(start) + " – " + endFormat.format(end);
+        } catch (Exception ignored) { return ""; }
     }
 
     private static ZoneId zone(JSONObject item) {
