@@ -33,7 +33,8 @@
     <string name="aquamail_message_unavailable">Opening this email in Aqua Mail is unavailable</string>
     <string name="aquamail_connect">Tap to open Aqua Mail</string>
     <string name="aquamail_allow">Tap to allow Aqua Mail access</string>
-    <string name="widget_updated">Updated %1$s</string>
+    <string name="widget_last_synced">Last synced %1$s</string>
+    <string name="widget_sync_unknown">Last synced —</string>
     <string name="widget_loading">Loading</string>
     <string name="widget_unavailable">Unable to load. Tap refresh to retry.</string>
     <string name="app_name">Pandemonium</string>

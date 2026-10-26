@@ -122,19 +122,17 @@ public class MailWindowSourceTest {
         assertEquals("incomplete", HomeWidgetSync.mailFailure(new MailWindowSource.InvalidSnapshot()));
     }
 
-    @Test public void reportsCoverageFreshnessAndSavedUpdateFailuresWithoutClaimingCompleteness() throws Exception {
+    @Test public void showsOneSyncLineWhileRetainingSavedFailureMetadata() throws Exception {
         android.content.Context context = androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().getTargetContext();
         JSONObject metadata = new JSONObject().put("coverage", MailFixtures.coverage(new JSONArray(), NOW));
-        assertTrue(HomeWidgetViews.mailStatus(context, metadata).contains("Sources 2/2"));
-        assertTrue(HomeWidgetViews.mailStatus(context, metadata).contains("Oldest sync"));
+        String synced = HomeWidgetViews.mailStatus(context, metadata);
+        assertTrue(synced.startsWith("Last synced ")); assertFalse(synced.contains("\n"));
+        metadata.put("refreshError", "expired");
+        assertEquals(synced, HomeWidgetViews.mailStatus(context, metadata));
+        assertEquals("expired", metadata.getString("refreshError"));
         metadata.getJSONObject("coverage").put("complete", false).put("statusAvailable", false)
             .getJSONArray("connections").getJSONObject(1).put("state", "failed");
-        String partial = HomeWidgetViews.mailStatus(context, metadata);
-        assertTrue(partial.contains("Sources 1/2")); assertTrue(partial.contains("Some sources unavailable"));
-        assertTrue(partial.contains("Sync time unavailable"));
-        metadata.put("refreshError", "expired");
-        assertTrue(HomeWidgetViews.mailStatus(context, metadata).contains("Mail update expired"));
-        metadata.put("refreshError", "limit");
-        assertTrue(HomeWidgetViews.mailStatus(context, metadata).contains("Mail incomplete: update limit reached"));
+        assertEquals(context.getString(R.string.widget_sync_unknown), HomeWidgetViews.mailStatus(context, metadata));
+        assertEquals(context.getString(R.string.widget_sync_unknown), HomeWidgetViews.mailStatus(context, null));
     }
 }

@@ -43,19 +43,10 @@ final class HomeWidgetViews {
             : section == null || !section.optBoolean("paginationComplete") ? R.string.widget_load : R.string.mail_widget_no_mail;
         views.setTextViewText(R.id.home_widget_empty, context.getString(empty));
         long updated = section == null ? 0 : section.optLong("updatedAt");
-        boolean stale = updated > 0 && System.currentTimeMillis() - updated > 60 * 60_000L;
-        boolean failed = CALENDAR.equals(kind) && section != null && section.optBoolean("refreshFailed");
-        views.setViewVisibility(R.id.home_widget_updated, stale || failed ? View.VISIBLE : View.GONE);
-        if (stale || failed) views.setTextViewText(R.id.home_widget_updated, updated > 0
-            ? context.getString(failed ? R.string.widget_work_saved : R.string.widget_updated,
-                DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault())
-                    .withZone(CALENDAR.equals(kind) ? WorkWeekSource.ZONE : ZoneId.systemDefault())
-                    .format(Instant.ofEpochMilli(updated)))
-            : context.getString(R.string.widget_work_unavailable));
-        if (MAIL.equals(kind)) {
-            views.setViewVisibility(R.id.home_widget_updated, signedOut ? View.GONE : View.VISIBLE);
-            views.setTextViewText(R.id.home_widget_updated, mailStatus(context, section));
-        }
+        views.setViewVisibility(R.id.home_widget_updated, signedOut ? View.GONE : View.VISIBLE);
+        views.setTextViewText(R.id.home_widget_updated, MAIL.equals(kind) ? mailStatus(context, section)
+            : updated > 0 ? synced(context, Instant.ofEpochMilli(updated), WorkWeekSource.ZONE)
+            : context.getString(R.string.widget_sync_unknown));
         Intent open = (MAIL.equals(kind) ? new Intent(context, MailClientActivity.class) : MainActivity.workIntent(context))
             .setData(Uri.parse("pandemonium://widget/" + kind));
         views.setOnClickPendingIntent(R.id.home_widget_title, PendingIntent.getActivity(context, kind.hashCode(), open,
@@ -130,28 +121,14 @@ final class HomeWidgetViews {
     }
 
     static String mailStatus(Context context, JSONObject section) {
-        if (section == null) return context.getString(R.string.widget_load);
-        JSONObject coverage = section.optJSONObject("coverage");
-        if (coverage == null) return context.getString(section.has("refreshError") ? mailError(section.optString("refreshError")) : R.string.widget_load);
-        JSONArray connections = coverage.optJSONArray("connections");
-        int total = connections == null ? 0 : connections.length(), available = 0;
-        for (int i = 0; i < total; i++) {
-            JSONObject connection = connections.optJSONObject(i);
-            if (connection != null && "available".equals(connection.optString("state"))) available++;
-        }
-        String result = context.getString(R.string.mail_widget_sources, available, total);
-        try {
-            String snapshot = DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault()).withZone(ZoneId.systemDefault())
-                .format(Instant.parse(coverage.getString("to")));
-            result += " · " + context.getString(R.string.mail_widget_snapshot, snapshot);
-        } catch (Exception ignored) { }
-        Instant oldest = MailWindowSource.oldestSync(section);
-        result += "\n" + (oldest == null ? context.getString(R.string.mail_widget_freshness_unknown)
-            : context.getString(R.string.mail_widget_oldest_sync, DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault())
-                .withZone(ZoneId.systemDefault()).format(oldest)));
-        if (section.has("refreshError")) result = context.getString(mailError(section.optString("refreshError"))) + "\n" + result;
-        else if (!coverage.optBoolean("complete")) result = context.getString(R.string.mail_widget_partial) + "\n" + result;
-        return result;
+        Instant oldest = section == null ? null : MailWindowSource.oldestSync(section);
+        return oldest == null ? context.getString(R.string.widget_sync_unknown)
+            : synced(context, oldest, ZoneId.systemDefault());
+    }
+
+    private static String synced(Context context, Instant instant, ZoneId zone) {
+        return context.getString(R.string.widget_last_synced,
+            DateTimeFormatter.ofPattern("d MMM, HH:mm", Locale.getDefault()).withZone(zone).format(instant));
     }
 
     static String sender(JSONObject item) {

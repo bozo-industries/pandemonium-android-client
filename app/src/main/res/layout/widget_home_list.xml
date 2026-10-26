@@ -3,7 +3,7 @@
         <TextView android:id="@+id/home_widget_title" android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center_vertical" android:paddingStart="6dp" android:paddingEnd="6dp" android:textColor="#FFF7F3FA" android:textSize="18sp" android:textStyle="bold" android:maxLines="1" android:ellipsize="end" />
         <ImageButton android:id="@+id/home_widget_refresh" android:layout_width="48dp" android:layout_height="48dp" android:padding="12dp" android:background="@android:color/transparent" android:src="@drawable/widget_refresh" android:contentDescription="@string/widget_refresh" />
     </LinearLayout>
-    <TextView android:id="@+id/home_widget_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="6dp" android:paddingEnd="6dp" android:paddingBottom="6dp" android:textColor="#D0F7F3FA" android:textSize="11sp" android:visibility="gone" />
+    <TextView android:id="@+id/home_widget_updated" android:layout_width="match_parent" android:layout_height="wrap_content" android:paddingStart="6dp" android:paddingEnd="6dp" android:paddingBottom="2dp" android:textColor="#D0F7F3FA" android:textSize="10sp" android:maxLines="1" android:ellipsize="end" android:visibility="gone" />
     <ListView android:id="@+id/home_widget_list" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:divider="#24FFFFFF" android:dividerHeight="1dp" android:scrollbars="none" />
     <TextView android:id="@+id/home_widget_empty" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center" android:padding="16dp" android:textColor="#FFF7F3FA" android:textSize="14sp" />
 </LinearLayout>

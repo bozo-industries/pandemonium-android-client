@@ -26,16 +26,16 @@ translucent background shared with the loyalty widget. Mail shows dated read and
 unread messages in the last seven elapsed days across Email's enabled connections.
 It follows every page of `email.widget.mail` and deduplicates only identical
 source-qualified message references; provider deduplication remains Email-owned.
-The widget shows available-source coverage, the snapshot time, and the oldest
-known source sync. Unknown freshness, failed sources and incomplete updates are
-explicit. The header opens Aqua Mail normally. Message taps currently report
+A small, single-line Last synced note below each widget header shows its
+last known sync time. Mail uses the oldest known source sync; an unknown time
+shows a dash. The header opens Aqua Mail normally. Message taps currently report
 opening unavailable because Email supplies no verified Aqua Mail locator;
 Pandemonium does not add a message reader or guess message links.
 
 Mail snapshots use separate Android-Keystore-encrypted pages and an atomic
 snapshot index. A failed page or expired cursor retains the previous snapshot
-with its failure state. A completed snapshot with unavailable sources remains
-visibly incomplete. Aged messages leave the displayed seven-day window. There
+with its failure state. Source availability and update failures remain recorded in the encrypted
+snapshot metadata. Aged messages leave the displayed seven-day window. There
 is no 100-message display limit or combined Work-cache size limit on Mail;
 individual response/cache pages are bounded at 1 MiB. The server's 15-minute
 snapshot lifetime and 50,000-message safety refusal produce explicit failed
