@@ -43,8 +43,8 @@ updates, without claiming a truncated result complete.
 
 Calendar shows every
 planned Work shift in the current Mondayâ€“Sunday week in Europe/Berlin, including
-completed shifts earlier in the week. Rows show Work’s Early Shift / Late Shift
-label and the complete start–end time range in Europe/Berlin. The header labels the cached week, and taps
+completed shifts earlier in the week. Rows show Work's Early Shift / Late Shift
+label and the complete start-end time range in Europe/Berlin. The header labels the cached week, and taps
 open the existing Work page inside Pandemonium. Approved shift plans and confirmed nonworking days
 follow Work's existing schedule rules.
 

@@ -156,7 +156,7 @@ final class HomeWidgetViews {
             DateTimeFormatter time = DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault());
             DateTimeFormatter endFormat = start.toLocalDate().equals(end.toLocalDate()) ? time
                 : DateTimeFormatter.ofPattern("EEE, d MMM HH:mm", Locale.getDefault());
-            return time.format(start) + " – " + endFormat.format(end);
+            return time.format(start) + " \u2013 " + endFormat.format(end);
         } catch (Exception ignored) { return ""; }
     }
 

@@ -67,17 +67,17 @@ public class HomeWidgetTest {
 
     @Test public void rendersFullShiftNameAndBothTimes() throws Exception {
         JSONObject item = new JSONObject().put("eventId", "named-shift")
-            .put("title", "Spätschicht – Wareneingang und Kasse")
+            .put("title", "Late Shift")
             .put("startTime", "2026-10-26T12:15:00Z").put("endTime", "2026-10-26T20:45:00Z")
             .put("timezone", "Europe/Berlin");
         instrumentation.runOnMainSync(() -> {
             View row = HomeWidgetViews.row(context, "calendar", item).apply(context, new FrameLayout(context));
             assertEquals(item.optString("title"), ((TextView) row.findViewById(R.id.home_widget_row_title)).getText().toString());
-            assertEquals("13:15 – 21:45", ((TextView) row.findViewById(R.id.home_widget_row_date)).getText().toString());
+            assertEquals("13:15 \u2013 21:45", ((TextView) row.findViewById(R.id.home_widget_row_date)).getText().toString());
         });
         item.put("endTime", "2026-10-27T01:30:00Z");
         String overnight = HomeWidgetViews.eventTime(item);
-        assertTrue(overnight.startsWith("13:15 – ")); assertTrue(overnight.contains("27")); assertTrue(overnight.endsWith("02:30"));
+        assertTrue(overnight.startsWith("13:15 \u2013 ")); assertTrue(overnight.contains("27")); assertTrue(overnight.endsWith("02:30"));
     }
 
     @Test public void rendersTranslucentPanelsAndRetainsReadableOpaqueQrPixels() throws Exception {
